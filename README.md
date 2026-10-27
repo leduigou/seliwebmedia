@@ -26,6 +26,9 @@ Les nouvelles versions sont publiées sur ce dépôt GitHub et détectées autom
 
 ## Changelog
 
+### 0.6.8
+- Correctif : la mise en page d'un message HTML (espacement entre paragraphes, listes) pouvait s'aplatir à l'affichage (« Voir ») et à la réception du mail, alors que l'éditeur et « Dupliquer » montraient la bonne mise en page — certains contextes n'appliquent pas de marge par défaut sur les paragraphes/listes. Des marges explicites sont désormais ajoutées automatiquement (sans écraser un style déjà présent).
+
 ### 0.6.7
 - Correctif : le lien « Aller à l'onglet Mails » (message « Vous devez d'abord renseigner les paramètres » à la création d'un message) pointait vers un slug de page inexistant (`seliwebmedia_reglages` au lieu de `seliwebmedia`), ce qui affichait « Vous n'avez pas l'autorisation d'accéder à cette page ».
 

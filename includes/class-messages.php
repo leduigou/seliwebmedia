@@ -258,6 +258,59 @@ class Seliweb_Media_Messages {
         }
     }
 
+    // Ajoute des marges en ligne de secours aux paragraphes/listes d'un
+    // message HTML, sans jamais écraser un style déjà présent sur la
+    // balise. Nécessaire car certains contextes d'affichage (clients mail
+    // comme Gmail, certaines pages d'admin) n'appliquent pas les marges
+    // par défaut du navigateur sur <p>/<ul>/<ol>/<li> — sans ce filet, la
+    // mise en page composée dans l'éditeur (paragraphes séparés, listes
+    // aérées) s'aplatit visuellement à l'affichage ou à la réception,
+    // alors que le HTML stocké en base reste, lui, intact (ce qui explique
+    // qu'un « Dupliquer », qui recharge ce même HTML dans l'éditeur, ne
+    // montre pas le problème — l'éditeur applique ses propres styles).
+    // Utilisée à la fois par voir_message() et par l'envoi réel
+    // (Seliweb_Media_Mail_Queue::envoyer_destinataire()).
+    public static function normaliser_corps_html( $html ) {
+        if ( trim( (string) $html ) === '' ) {
+            return $html;
+        }
+
+        $styles_par_balise = array(
+            'p'  => 'margin:0 0 1em 0;',
+            'ul' => 'margin:0 0 1em 0;padding-left:20px;',
+            'ol' => 'margin:0 0 1em 0;padding-left:20px;',
+            'li' => 'margin:0 0 0.5em 0;',
+        );
+
+        $doc = new DOMDocument();
+        libxml_use_internal_errors( true );
+        $doc->loadHTML(
+            '<?xml encoding="utf-8" ?><div id="swm-root">' . $html . '</div>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+
+        $xpath  = new DOMXPath( $doc );
+        $racine = $xpath->query( '//div[@id="swm-root"]' )->item( 0 );
+        if ( ! $racine ) {
+            return $html; // repli : contenu inchangé si le parsing a échoué
+        }
+
+        foreach ( $styles_par_balise as $balise => $style ) {
+            foreach ( $doc->getElementsByTagName( $balise ) as $element ) {
+                if ( ! $element->getAttribute( 'style' ) ) {
+                    $element->setAttribute( 'style', $style );
+                }
+            }
+        }
+
+        $resultat = '';
+        foreach ( $racine->childNodes as $enfant ) {
+            $resultat .= $doc->saveHTML( $enfant );
+        }
+        return $resultat;
+    }
+
     private static function voir_message( $id ) {
         global $wpdb;
         $tm = $wpdb->prefix . 'seliwebmedia_messages';
@@ -277,7 +330,7 @@ class Seliweb_Media_Messages {
             <?php if ( $message->date_envoi_prevue ) : ?> — <strong><?php esc_html_e( 'Envoi prévu :', 'seliwebmedia' ); ?></strong> <?php echo esc_html( $message->date_envoi_prevue ); ?><?php endif; ?>
         </p>
         <div style="background:#fff;border:1px solid #ddd;padding:16px;max-width:700px;margin:12px 0;">
-            <?php echo $message->format === 'html' ? $message->corps : '<pre style="white-space:pre-wrap;font-family:inherit;">' . esc_html( $message->corps ) . '</pre>'; ?>
+            <?php echo $message->format === 'html' ? self::normaliser_corps_html( $message->corps ) : '<pre style="white-space:pre-wrap;font-family:inherit;">' . esc_html( $message->corps ) . '</pre>'; ?>
         </div>
 
         <h3><?php printf( esc_html__( 'Destinataires (%d)', 'seliwebmedia' ), count( $destinataires ) ); ?></h3>

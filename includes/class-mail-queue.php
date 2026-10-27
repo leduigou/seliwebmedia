@@ -114,11 +114,7 @@ class Seliweb_Media_Mail_Queue {
         }
 
         if ( $d->format === 'html' ) {
-            $corps_final = $corps;
-            if ( $lien_desabonnement ) {
-                // Note de bas de message gérée par le gabarit (voir templates/mail-html.php).
-            }
-            $corps_html = $corps_final;
+            $corps_html = Seliweb_Media_Messages::normaliser_corps_html( $corps );
             $lien_desabonnement_tpl = $lien_desabonnement;
             ob_start();
             include SELIWEBMEDIA_DIR . 'templates/mail-html.php';
