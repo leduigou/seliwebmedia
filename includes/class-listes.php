@@ -96,10 +96,10 @@ class Seliweb_Media_Listes {
         <h2><?php esc_html_e( 'Listes SeliwebMedia', 'seliwebmedia' ); ?></h2>
         <table class="wp-list-table widefat fixed striped">
             <thead><tr>
-                <th style="width:50px;"><?php esc_html_e( 'ID', 'seliwebmedia' ); ?></th>
+                <th style="width:40px;"><?php esc_html_e( 'ID', 'seliwebmedia' ); ?></th>
                 <th style="width:300px;"><?php esc_html_e( 'Nom', 'seliwebmedia' ); ?></th>
-                <th style="width:500px;"><?php esc_html_e( 'Description', 'seliwebmedia' ); ?></th>
-                <th style="width:90px;"><?php esc_html_e( 'Abonnés', 'seliwebmedia' ); ?></th>
+                <th style="width:300px;"><?php esc_html_e( 'Description', 'seliwebmedia' ); ?></th>
+                <th style="width:80px;"><?php esc_html_e( 'Abonnés', 'seliwebmedia' ); ?></th>
                 <th><?php esc_html_e( 'Actions', 'seliwebmedia' ); ?></th>
             </tr></thead>
             <tbody>

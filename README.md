@@ -26,6 +26,10 @@ Les nouvelles versions sont publiées sur ce dépôt GitHub et détectées autom
 
 ## Changelog
 
+### 0.6.9
+- Correctif : un message HTML composé avec du texte libre (sans balises de paragraphe explicites, selon la façon dont le texte a été saisi/collé dans l'éditeur) perdait tous ses retours à la ligne à l'affichage et à la réception. `normaliser_corps_html()` passe désormais par `wpautop()` avant d'ajouter les marges, pour reconstituer les paragraphes et retours à la ligne même quand l'éditeur n'a pas posé de balises.
+- Écran Listes mails : largeurs des colonnes du tableau « Listes SeliwebMedia » réajustées (ID 40px, Nom 300px, Description 300px, Abonnés 80px).
+
 ### 0.6.8
 - Correctif : la mise en page d'un message HTML (espacement entre paragraphes, listes) pouvait s'aplatir à l'affichage (« Voir ») et à la réception du mail, alors que l'éditeur et « Dupliquer » montraient la bonne mise en page — certains contextes n'appliquent pas de marge par défaut sur les paragraphes/listes. Des marges explicites sont désormais ajoutées automatiquement (sans écraser un style déjà présent).
 

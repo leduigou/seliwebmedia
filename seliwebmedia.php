@@ -2,7 +2,7 @@
 /*
  * Plugin Name: SeliwebMedia
  * Description: Listes de diffusion, newsletters et gestion des réseaux sociaux — en lien avec les groupes de l'extension Seliweb-WP si elle est active.
- * Version: 0.6.8
+ * Version: 0.6.9
  * Author: Philippe Le Duigou
  * Text Domain: seliwebmedia
  * Domain Path: /languages
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'SELIWEBMEDIA_VERSION', '0.6.8' );
+define( 'SELIWEBMEDIA_VERSION', '0.6.9' );
 define( 'SELIWEBMEDIA_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'SELIWEBMEDIA_URL',     plugin_dir_url( __FILE__ ) );
 // Chemin réel tel que WordPress l'a chargé (dossier/fichier.php) — même

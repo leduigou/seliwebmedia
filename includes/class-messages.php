@@ -268,12 +268,23 @@ class Seliweb_Media_Messages {
     // alors que le HTML stocké en base reste, lui, intact (ce qui explique
     // qu'un « Dupliquer », qui recharge ce même HTML dans l'éditeur, ne
     // montre pas le problème — l'éditeur applique ses propres styles).
+    //
+    // Passe d'abord par wpautop() : selon la façon dont le texte a été
+    // saisi/collé dans l'éditeur, le HTML stocké peut contenir des blocs de
+    // texte libres séparés par de simples retours à la ligne, sans balise
+    // <p>/<br> du tout — invisibles une fois rendus en HTML (le navigateur/
+    // client mail ignore les retours à la ligne bruts). wpautop() les
+    // transforme en <p>/<br>, sans toucher au HTML de bloc déjà présent
+    // (listes, etc.).
+    //
     // Utilisée à la fois par voir_message() et par l'envoi réel
     // (Seliweb_Media_Mail_Queue::envoyer_destinataire()).
     public static function normaliser_corps_html( $html ) {
         if ( trim( (string) $html ) === '' ) {
             return $html;
         }
+
+        $html = wpautop( $html );
 
         $styles_par_balise = array(
             'p'  => 'margin:0 0 1em 0;',
