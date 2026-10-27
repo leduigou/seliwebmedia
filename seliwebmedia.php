@@ -2,7 +2,7 @@
 /*
  * Plugin Name: SeliwebMedia
  * Description: Listes de diffusion, newsletters et gestion des réseaux sociaux — en lien avec les groupes de l'extension Seliweb-WP si elle est active.
- * Version: 0.6.5
+ * Version: 0.6.7
  * Author: Philippe Le Duigou
  * Text Domain: seliwebmedia
  * Domain Path: /languages
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'SELIWEBMEDIA_VERSION', '0.6.5' );
+define( 'SELIWEBMEDIA_VERSION', '0.6.7' );
 define( 'SELIWEBMEDIA_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'SELIWEBMEDIA_URL',     plugin_dir_url( __FILE__ ) );
 // Chemin réel tel que WordPress l'a chargé (dossier/fichier.php) — même
@@ -64,7 +64,15 @@ class SeliwebMedia {
             'seliwebmedia',
             array( 'Seliweb_Media_Parametres', 'render_dashboard' ),
             'dashicons-megaphone',
-            58 // juste après Seliweb dans la colonne de gauche
+            // Seliweb demande la position 2, mais WordPress l'occupe déjà
+            // pour son propre menu Tableau de bord (wp-admin/menu.php) :
+            // Seliweb entre donc en collision et se retrouve décalé par
+            // WordPress à une position pseudo-aléatoire proche de 2 (entre
+            // 2 et 2.65, calculée via un hash — jamais exactement 2). La
+            // prochaine position fixe du cœur WordPress est le séparateur
+            // 4 ; 3 se place donc toujours après Seliweb, quel que soit le
+            // décalage exact qu'il reçoit.
+            3
         );
         add_submenu_page(
             'seliwebmedia',

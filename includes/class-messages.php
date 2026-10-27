@@ -123,7 +123,7 @@ class Seliweb_Media_Messages {
             <div class="notice notice-warning" style="margin:16px 0;max-width:700px;">
                 <p>
                     <?php esc_html_e( "Vous devez d'abord renseigner les paramètres.", 'seliwebmedia' ); ?>
-                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=seliwebmedia_reglages&tab=mail' ) ); ?>">
+                    <a href="<?php echo esc_url( admin_url( 'admin.php?page=seliwebmedia&tab=mail' ) ); ?>">
                         <?php esc_html_e( "Aller à l'onglet Mails", 'seliwebmedia' ); ?>
                     </a>
                 </p>

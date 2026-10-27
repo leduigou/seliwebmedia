@@ -26,6 +26,12 @@ Les nouvelles versions sont publiées sur ce dépôt GitHub et détectées autom
 
 ## Changelog
 
+### 0.6.7
+- Correctif : le lien « Aller à l'onglet Mails » (message « Vous devez d'abord renseigner les paramètres » à la création d'un message) pointait vers un slug de page inexistant (`seliwebmedia_reglages` au lieu de `seliwebmedia`), ce qui affichait « Vous n'avez pas l'autorisation d'accéder à cette page ».
+
+### 0.6.6
+- Menu d'administration : SeliwebMedia se place désormais juste après Seliweb dans la colonne de gauche (la position 2 demandée par Seliweb est en réalité décalée par WordPress, qui l'utilise déjà pour son propre Tableau de bord).
+
 ### 0.6.5
 - Formulaire public d'inscription : champ Email élargi pour s'aligner avec la fin du champ Ville (largeurs explicites Code postal/Ville/Email).
 
