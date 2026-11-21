@@ -20,11 +20,21 @@ SeliwebMedia fonctionne de façon autonome (listes de diffusion et newsletters c
 
 L'extension est librement téléchargeable et installable. L'utilisation des fonctions d'envoi (listes de diffusion, newsletters, réseaux sociaux) nécessite une clé API fournie par l'association Connex, à saisir dans **SeliwebMedia → Licence**.
 
+Une clé sert à un seul site : le premier site qui l'utilise lui est lié. Saisie sur un autre site, elle est refusée (« Clé déjà utilisée par un autre site »). Pour changer de site (nouveau nom de domaine), Connex délie la clé dans Connex Licences.
+
 ## Mises à jour
 
 Les nouvelles versions sont publiées sur ce dépôt GitHub et détectées automatiquement par WordPress (Extensions / Mises à jour), comme pour une extension classique du répertoire officiel.
 
 ## Changelog
+
+### 0.6.11
+- Droits d'accès : nouvel onglet **Gestionnaires** dans Paramétrage, même principe que Seliweb. L'administrateur donne à des comptes du site (reliés ou non à Seliweb) un niveau par module : Mails, SMS et Newsletter (ces deux derniers à venir), chacun Aucun / Lecture / Modification / Création-suppression. Lecture : consulter listes, destinataires et messages. Modification : modifier les listes, leurs destinataires et les brouillons. Création-suppression : créer, dupliquer, supprimer, et envoyer ou programmer un message.
+- Les administrateurs WordPress et les Administrateurs Seliweb ont tous les droits, Paramétrage compris (Tableau de bord, Licence, Mails, Gestionnaires).
+- Un gestionnaire voit le menu SeliwebMedia avec les seuls modules qu'il peut lire (sans Paramétrage) ; le menu ouvre directement le premier d'entre eux. Un bandeau rappelle son niveau ; les actions qui dépassent son droit sont masquées et refusées côté serveur. Sans module développé accessible (droits SMS ou Newsletter seuls), pas de menu.
+
+### 0.6.10
+- Licence : une clé est réservée au site qui l'utilise en premier. Saisie sur un autre site, l'écran Licence affiche « Licence inactive. Clé déjà utilisée par un autre site. » (nécessite Connex Licences 0.2.9 sur connex-asso.net).
 
 ### 0.6.9
 - Correctif : un message HTML composé avec du texte libre (sans balises de paragraphe explicites, selon la façon dont le texte a été saisi/collé dans l'éditeur) perdait tous ses retours à la ligne à l'affichage et à la réception. `normaliser_corps_html()` passe désormais par `wpautop()` avant d'ajouter les marges, pour reconstituer les paragraphes et retours à la ligne même quand l'éditeur n'a pas posé de balises.

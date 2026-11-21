@@ -31,6 +31,7 @@ class Seliweb_Media_Listes {
     // Écran principal : onglets Listes / Messages
     // ----------------------------------------------------------------
     public static function render() {
+        if ( ! Seliweb_Media_Droits::verifier_acces( 'mails', 'lire' ) ) return;
         $tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'listes';
 
         echo '<div class="wrap">';
@@ -73,13 +74,15 @@ class Seliweb_Media_Listes {
             return;
         }
         if ( isset( $_GET['action'] ) && $_GET['action'] === 'new' ) {
-            self::form_liste();
+            if ( Seliweb_Media_Droits::verifier_acces( 'mails', 'creer' ) ) self::form_liste();
             return;
         }
         if ( isset( $_GET['action'] ) && $_GET['action'] === 'edit' && ! empty( $_GET['id'] ) ) {
-            self::form_liste( intval( $_GET['id'] ) );
+            if ( Seliweb_Media_Droits::verifier_acces( 'mails', 'modifier' ) ) self::form_liste( intval( $_GET['id'] ) );
             return;
         }
+        $peut_creer    = Seliweb_Media_Droits::peut( 'mails', 'creer' );
+        $peut_modifier = Seliweb_Media_Droits::peut( 'mails', 'modifier' );
 
         if ( isset( $_GET['updated'] ) ) {
             echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Liste enregistrée.', 'seliwebmedia' ) . '</p></div>';
@@ -88,8 +91,10 @@ class Seliweb_Media_Listes {
             echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Liste supprimée.', 'seliwebmedia' ) . '</p></div>';
         }
 
-        echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=seliwebmedia_listes&tab=listes&action=new' ) ) . '" class="button button-primary">'
-            . esc_html__( '+ Nouvelle liste', 'seliwebmedia' ) . '</a></p>';
+        if ( $peut_creer ) {
+            echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=seliwebmedia_listes&tab=listes&action=new' ) ) . '" class="button button-primary">'
+                . esc_html__( '+ Nouvelle liste', 'seliwebmedia' ) . '</a></p>';
+        }
 
         $listes = $wpdb->get_results( "SELECT * FROM $tl ORDER BY nom ASC" );
         ?>
@@ -114,12 +119,16 @@ class Seliweb_Media_Listes {
                     <td><?php echo esc_html( $l->description ); ?></td>
                     <td><?php echo (int) $nb; ?></td>
                     <td style="white-space:nowrap;">
+                        <?php if ( $peut_modifier ) : ?>
                         <a href="<?php echo esc_url( admin_url( 'admin.php?page=seliwebmedia_listes&tab=listes&action=edit&id=' . $l->id ) ); ?>"><?php esc_html_e( 'Modifier', 'seliwebmedia' ); ?></a>
                         &nbsp;|&nbsp;
+                        <?php endif; ?>
+                        <?php if ( $peut_creer ) : ?>
                         <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=seliwebmedia_supprimer_liste&id=' . $l->id ), 'seliwebmedia_supprimer_liste_' . $l->id ) ); ?>"
                            onclick="return confirm('<?php esc_attr_e( 'Supprimer cette liste et tous ses abonnements ?', 'seliwebmedia' ); ?>')"
                            style="color:#b32d2e;"><?php esc_html_e( 'Supprimer', 'seliwebmedia' ); ?></a>
                         &nbsp;|&nbsp;
+                        <?php endif; ?>
                         <a href="<?php echo esc_url( admin_url( 'admin.php?page=seliwebmedia_listes&tab=listes&action=voir&id=' . $l->id ) ); ?>"><?php esc_html_e( 'Destinataires', 'seliwebmedia' ); ?></a>
                     </td>
                 </tr>
@@ -314,11 +323,14 @@ class Seliweb_Media_Listes {
             <div class="notice notice-error is-dismissible"><p><?php esc_html_e( 'Cette adresse mail est déjà utilisée par un autre contact.', 'seliwebmedia' ); ?></p></div>
         <?php endif; ?>
 
+        <?php $peut_modifier = Seliweb_Media_Droits::peut( 'mails', 'modifier' ); ?>
+        <?php if ( $peut_modifier ) : ?>
         <p>
             <button type="button" class="button button-primary" onclick="document.getElementById('swm_dialog_ajout').showModal();">
                 <?php esc_html_e( '+ Ajouter un destinataire', 'seliwebmedia' ); ?>
             </button>
         </p>
+        <?php endif; ?>
 
         <table class="wp-list-table widefat fixed striped">
             <thead><tr>
@@ -344,6 +356,7 @@ class Seliweb_Media_Listes {
                     <td><?php echo esc_html( $a->ville ); ?></td>
                     <td><?php echo esc_html( $a->email ); ?></td>
                     <td style="white-space:nowrap;">
+                        <?php if ( $peut_modifier ) : ?>
                         <a href="#" onclick="document.getElementById('swm_dialog_modif_<?php echo (int) $a->contact_id; ?>').showModal();return false;">
                             <?php esc_html_e( 'Modifier', 'seliwebmedia' ); ?>
                         </a>
@@ -354,6 +367,7 @@ class Seliweb_Media_Listes {
                         ) ); ?>" onclick="return confirm('<?php esc_attr_e( 'Retirer ce destinataire de la liste ?', 'seliwebmedia' ); ?>')" style="color:#b32d2e;">
                             <?php esc_html_e( 'Retirer', 'seliwebmedia' ); ?>
                         </a>
+                        <?php else : ?>—<?php endif; ?>
                     </td>
                 </tr>
                 <?php
@@ -431,7 +445,7 @@ class Seliweb_Media_Listes {
     }
 
     public static function handle_save_liste() {
-        if ( ! current_user_can( 'manage_options' ) ) wp_die( esc_html__( 'Accès refusé.', 'seliwebmedia' ) );
+        Seliweb_Media_Droits::exiger( 'mails', intval( $_POST['liste_id'] ?? 0 ) ? 'modifier' : 'creer' );
         check_admin_referer( 'seliwebmedia_save_liste' );
 
         global $wpdb;
@@ -465,7 +479,7 @@ class Seliweb_Media_Listes {
     // lui-même — on l'enregistre quand même avec un repère distinct
     // (consentement_ip = 'admin') pour le distinguer dans les données.
     public static function handle_ajouter_destinataire() {
-        if ( ! current_user_can( 'manage_options' ) ) wp_die( esc_html__( 'Accès refusé.', 'seliwebmedia' ) );
+        Seliweb_Media_Droits::exiger( 'mails', 'modifier' );
         $liste_id = intval( $_POST['liste_id'] ?? 0 );
         check_admin_referer( 'seliwebmedia_ajouter_destinataire_' . $liste_id );
 
@@ -515,7 +529,7 @@ class Seliweb_Media_Listes {
     // unique des contacts : si la nouvelle adresse appartient déjà à un
     // autre contact, on refuse plutôt que de fusionner silencieusement.
     public static function handle_modifier_destinataire() {
-        if ( ! current_user_can( 'manage_options' ) ) wp_die( esc_html__( 'Accès refusé.', 'seliwebmedia' ) );
+        Seliweb_Media_Droits::exiger( 'mails', 'modifier' );
         $contact_id = intval( $_POST['contact_id'] ?? 0 );
         check_admin_referer( 'seliwebmedia_modifier_destinataire_' . $contact_id );
 
@@ -550,7 +564,7 @@ class Seliweb_Media_Listes {
     // Retire un contact d'une liste (désabonnement administratif) — ne
     // supprime pas le contact lui-même, seulement son abonnement à CETTE liste.
     public static function handle_retirer_destinataire() {
-        if ( ! current_user_can( 'manage_options' ) ) wp_die( esc_html__( 'Accès refusé.', 'seliwebmedia' ) );
+        Seliweb_Media_Droits::exiger( 'mails', 'modifier' );
         $liste_id   = intval( $_GET['liste_id'] ?? 0 );
         $contact_id = intval( $_GET['contact_id'] ?? 0 );
         check_admin_referer( 'seliwebmedia_retirer_destinataire_' . $liste_id . '_' . $contact_id );
@@ -566,7 +580,7 @@ class Seliweb_Media_Listes {
     }
 
     public static function handle_supprimer_liste() {
-        if ( ! current_user_can( 'manage_options' ) ) wp_die( esc_html__( 'Accès refusé.', 'seliwebmedia' ) );
+        Seliweb_Media_Droits::exiger( 'mails', 'supprimer' );
         $id = intval( $_GET['id'] ?? 0 );
         check_admin_referer( 'seliwebmedia_supprimer_liste_' . $id );
 

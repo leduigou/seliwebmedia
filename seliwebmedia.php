@@ -2,7 +2,7 @@
 /*
  * Plugin Name: SeliwebMedia
  * Description: Listes de diffusion, newsletters et gestion des réseaux sociaux — en lien avec les groupes de l'extension Seliweb-WP si elle est active.
- * Version: 0.6.9
+ * Version: 0.6.11
  * Author: Philippe Le Duigou
  * Text Domain: seliwebmedia
  * Domain Path: /languages
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'SELIWEBMEDIA_VERSION', '0.6.9' );
+define( 'SELIWEBMEDIA_VERSION', '0.6.11' );
 define( 'SELIWEBMEDIA_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'SELIWEBMEDIA_URL',     plugin_dir_url( __FILE__ ) );
 // Chemin réel tel que WordPress l'a chargé (dossier/fichier.php) — même
@@ -23,6 +23,7 @@ define( 'SELIWEBMEDIA_URL',     plugin_dir_url( __FILE__ ) );
 define( 'SELIWEBMEDIA_PLUGIN_FILE', plugin_basename( __FILE__ ) );
 
 require_once SELIWEBMEDIA_DIR . 'includes/class-database.php';
+require_once SELIWEBMEDIA_DIR . 'includes/class-droits.php';
 require_once SELIWEBMEDIA_DIR . 'includes/class-licence.php';
 require_once SELIWEBMEDIA_DIR . 'includes/class-integration-seliweb.php';
 require_once SELIWEBMEDIA_DIR . 'includes/class-parametres.php';
@@ -31,6 +32,7 @@ require_once SELIWEBMEDIA_DIR . 'includes/class-messages.php';
 require_once SELIWEBMEDIA_DIR . 'includes/class-mail-queue.php';
 require_once SELIWEBMEDIA_DIR . 'includes/class-updater.php';
 
+Seliweb_Media_Droits::init();
 Seliweb_Media_Licence::init();
 Seliweb_Media_Parametres::init();
 Seliweb_Media_Listes::init();
@@ -57,39 +59,47 @@ class SeliwebMedia {
     // mails". Les écrans Newsletters et Réseaux sociaux viendront
     // s'ajouter ici au fil du développement.
     public function create_menu() {
-        add_menu_page(
-            __( 'SeliwebMedia', 'seliwebmedia' ),
-            __( 'SeliwebMedia', 'seliwebmedia' ),
-            'manage_options',
-            'seliwebmedia',
-            array( 'Seliweb_Media_Parametres', 'render_dashboard' ),
-            'dashicons-megaphone',
-            // Seliweb demande la position 2, mais WordPress l'occupe déjà
-            // pour son propre menu Tableau de bord (wp-admin/menu.php) :
-            // Seliweb entre donc en collision et se retrouve décalé par
-            // WordPress à une position pseudo-aléatoire proche de 2 (entre
-            // 2 et 2.65, calculée via un hash — jamais exactement 2). La
-            // prochaine position fixe du cœur WordPress est le séparateur
-            // 4 ; 3 se place donc toujours après Seliweb, quel que soit le
-            // décalage exact qu'il reçoit.
-            3
+        // Seliweb demande la position 2, mais WordPress l'occupe déjà pour
+        // son propre menu Tableau de bord (wp-admin/menu.php) : Seliweb entre
+        // donc en collision et se retrouve décalé par WordPress à une
+        // position pseudo-aléatoire proche de 2 (entre 2 et 2.65, calculée
+        // via un hash — jamais exactement 2). La prochaine position fixe du
+        // cœur WordPress est le séparateur 4 ; 3 se place donc toujours
+        // après Seliweb, quel que soit le décalage exact qu'il reçoit.
+        $position = 3;
+
+        // Écrans des modules, dans l'ordre du menu. SMS et Newsletter
+        // viendront s'ajouter ici quand ils seront développés.
+        $ecrans = array(
+            array( 'module' => 'mails', 'slug' => 'seliwebmedia_listes', 'titre' => __( 'Listes mails', 'seliwebmedia' ), 'rendu' => array( 'Seliweb_Media_Listes', 'render' ) ),
         );
-        add_submenu_page(
-            'seliwebmedia',
-            __( 'Paramétrage SeliwebMedia', 'seliwebmedia' ),
-            __( 'Paramétrage', 'seliwebmedia' ),
-            'manage_options',
-            'seliwebmedia',
-            array( 'Seliweb_Media_Parametres', 'render_dashboard' )
-        );
-        add_submenu_page(
-            'seliwebmedia',
-            __( 'Listes mails', 'seliwebmedia' ),
-            __( 'Listes mails', 'seliwebmedia' ),
-            'manage_options',
-            'seliwebmedia_listes',
-            array( 'Seliweb_Media_Listes', 'render' )
-        );
+
+        // Administrateurs : Paramétrage en premier (écran par défaut), puis tous les modules.
+        if ( Seliweb_Media_Droits::est_admin() ) {
+            add_menu_page( __( 'SeliwebMedia', 'seliwebmedia' ), __( 'SeliwebMedia', 'seliwebmedia' ),
+                Seliweb_Media_Droits::CAP_ADMIN, 'seliwebmedia', array( 'Seliweb_Media_Parametres', 'render_dashboard' ), 'dashicons-megaphone', $position );
+            add_submenu_page( 'seliwebmedia', __( 'Paramétrage SeliwebMedia', 'seliwebmedia' ), __( 'Paramétrage', 'seliwebmedia' ),
+                Seliweb_Media_Droits::CAP_ADMIN, 'seliwebmedia', array( 'Seliweb_Media_Parametres', 'render_dashboard' ) );
+            foreach ( $ecrans as $e ) {
+                add_submenu_page( 'seliwebmedia', $e['titre'], $e['titre'], Seliweb_Media_Droits::CAP_ADMIN, $e['slug'], $e['rendu'] );
+            }
+            return;
+        }
+
+        // Gestionnaires (Paramétrage → Gestionnaires) : seulement les
+        // modules qu'ils peuvent lire, sans Paramétrage. Le menu principal
+        // ouvre le premier d'entre eux. Aucun écran accessible : pas de menu.
+        $accessibles = array_values( array_filter( $ecrans, function ( $e ) {
+            return Seliweb_Media_Droits::peut( $e['module'], 'lire' );
+        } ) );
+        if ( ! $accessibles ) return;
+
+        $parent = $accessibles[0]['slug'];
+        add_menu_page( __( 'SeliwebMedia', 'seliwebmedia' ), __( 'SeliwebMedia', 'seliwebmedia' ),
+            Seliweb_Media_Droits::CAP_ACCES, $parent, $accessibles[0]['rendu'], 'dashicons-megaphone', $position );
+        foreach ( $accessibles as $e ) {
+            add_submenu_page( $parent, $e['titre'], $e['titre'], Seliweb_Media_Droits::CAP_ACCES, $e['slug'], $e['rendu'] );
+        }
     }
 
     // Rappel discret (pas bloquant) si Seliweb n'est pas détecté : les

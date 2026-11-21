@@ -26,13 +26,13 @@ class Seliweb_Media_Messages {
 
         switch ( $action ) {
             case 'new':
-                self::form_message();
+                if ( Seliweb_Media_Droits::verifier_acces( 'mails', 'creer' ) ) self::form_message();
                 break;
             case 'edit':
-                self::form_message( $id, false );
+                if ( Seliweb_Media_Droits::verifier_acces( 'mails', 'modifier' ) ) self::form_message( $id, false );
                 break;
             case 'dupliquer':
-                self::form_message( $id, true );
+                if ( Seliweb_Media_Droits::verifier_acces( 'mails', 'creer' ) ) self::form_message( $id, true );
                 break;
             case 'voir':
                 self::voir_message( $id );
@@ -56,10 +56,14 @@ class Seliweb_Media_Messages {
 
         $filtre = isset( $_GET['filtre'] ) && $_GET['filtre'] === 'archives' ? 'archives' : 'actifs';
 
-        echo '<p>';
-        echo '<a href="' . esc_url( admin_url( 'admin.php?page=seliwebmedia_listes&tab=messages&action=new' ) ) . '" class="button button-primary">'
-            . esc_html__( '+ Nouveau message', 'seliwebmedia' ) . '</a>';
-        echo '</p>';
+        $peut_creer    = Seliweb_Media_Droits::peut( 'mails', 'creer' );
+        $peut_modifier = Seliweb_Media_Droits::peut( 'mails', 'modifier' );
+        if ( $peut_creer ) {
+            echo '<p>';
+            echo '<a href="' . esc_url( admin_url( 'admin.php?page=seliwebmedia_listes&tab=messages&action=new' ) ) . '" class="button button-primary">'
+                . esc_html__( '+ Nouveau message', 'seliwebmedia' ) . '</a>';
+            echo '</p>';
+        }
 
         echo '<ul class="subsubsub">';
         echo '<li><a href="' . esc_url( admin_url( 'admin.php?page=seliwebmedia_listes&tab=messages&filtre=actifs' ) ) . '"' . ( $filtre === 'actifs' ? ' class="current"' : '' ) . '>' . esc_html__( 'Actifs', 'seliwebmedia' ) . '</a> |</li> ';
@@ -98,11 +102,13 @@ class Seliweb_Media_Messages {
                     <td><?php echo esc_html( $m->date_creation ); ?></td>
                     <td><?php echo $m->date_envoi_prevue ? esc_html( $m->date_envoi_prevue ) : '—'; ?></td>
                     <td>
-                        <?php $modifiable = in_array( $m->statut, array( 'brouillon', 'programme' ), true ); ?>
+                        <?php $modifiable = $peut_modifier && in_array( $m->statut, array( 'brouillon', 'programme' ), true ); ?>
                         <a href="<?php echo esc_url( admin_url( 'admin.php?page=seliwebmedia_listes&tab=messages&action=' . ( $modifiable ? 'edit' : 'voir' ) . '&id=' . $m->id ) ); ?>"><?php echo $modifiable ? esc_html__( 'Modifier', 'seliwebmedia' ) : esc_html__( 'Voir', 'seliwebmedia' ); ?></a>
+                        <?php if ( $peut_creer ) : ?>
                         &nbsp;|&nbsp;
                         <a href="<?php echo esc_url( admin_url( 'admin.php?page=seliwebmedia_listes&tab=messages&action=dupliquer&id=' . $m->id ) ); ?>"><?php esc_html_e( 'Dupliquer', 'seliwebmedia' ); ?></a>
-                        <?php if ( $m->statut === 'brouillon' ) : ?>
+                        <?php endif; ?>
+                        <?php if ( $peut_creer && $m->statut === 'brouillon' ) : ?>
                             &nbsp;|&nbsp;
                             <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=seliwebmedia_supprimer_message&id=' . $m->id ), 'seliwebmedia_supprimer_message_' . $m->id ) ); ?>"
                                onclick="return confirm('<?php esc_attr_e( 'Supprimer ce message ?', 'seliwebmedia' ); ?>')"
@@ -225,7 +231,11 @@ class Seliweb_Media_Messages {
             </table>
             <?php submit_button( __( 'Enregistrer brouillon', 'seliwebmedia' ), 'secondary', 'submit_action_brouillon', false, $confirmation_brouillon ? array( 'onclick' => "return confirm('{$confirmation_brouillon}')" ) : array() ); ?>
             &nbsp;
+            <?php if ( Seliweb_Media_Droits::peut( 'mails', 'envoyer' ) ) : ?>
             <?php submit_button( __( 'Envoyer', 'seliwebmedia' ), 'primary', 'submit_action_envoyer', false ); ?>
+            <?php else : ?>
+            <span class="description"><?php esc_html_e( "L'envoi demande le droit Création/suppression : enregistrez le brouillon, un autre gestionnaire l'enverra.", 'seliwebmedia' ); ?></span>
+            <?php endif; ?>
             &nbsp;
             <a href="<?php echo esc_url( admin_url( 'admin.php?page=seliwebmedia_listes&tab=messages' ) ); ?>" class="button"><?php esc_html_e( 'Annuler', 'seliwebmedia' ); ?></a>
         </form>
@@ -374,7 +384,13 @@ class Seliweb_Media_Messages {
     // Enregistrement
     // ----------------------------------------------------------------
     public static function handle_save_message() {
-        if ( ! current_user_can( 'manage_options' ) ) wp_die( esc_html__( 'Accès refusé.', 'seliwebmedia' ) );
+        // Nouveau message (ou duplication) : création ; envoi ou
+        // programmation : création ; simple brouillon d'un message existant :
+        // modification.
+        Seliweb_Media_Droits::exiger( 'mails', intval( $_POST['message_id'] ?? 0 ) ? 'modifier' : 'creer' );
+        if ( ! isset( $_POST['submit_action_brouillon'] ) ) {
+            Seliweb_Media_Droits::exiger( 'mails', 'envoyer' );
+        }
         check_admin_referer( 'seliwebmedia_save_message' );
 
         // Filet de sécurité serveur : le formulaire masque déjà la saisie
@@ -459,7 +475,7 @@ class Seliweb_Media_Messages {
     }
 
     public static function handle_supprimer_message() {
-        if ( ! current_user_can( 'manage_options' ) ) wp_die( esc_html__( 'Accès refusé.', 'seliwebmedia' ) );
+        Seliweb_Media_Droits::exiger( 'mails', 'supprimer' );
         $id = intval( $_GET['id'] ?? 0 );
         check_admin_referer( 'seliwebmedia_supprimer_message_' . $id );
 

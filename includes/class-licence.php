@@ -14,6 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Le point d'API est fourni par le plugin « Connex Licences », installé
  * sur www.connex-asso.net (dépôt privé leduigou/connex-licences). Il reçoit
  * { cle, site_url } et renvoie { valide: bool } — voir verifier_cle().
+ * La clé est liée au premier site qui la présente : un autre site reçoit
+ * { valide: false, motif: 'autre_site' }.
  */
 class Seliweb_Media_Licence {
 
@@ -44,15 +46,21 @@ class Seliweb_Media_Licence {
     // (avec mise en cache — voir CACHE_DUREE). C'est cette méthode que le
     // reste du plugin doit appeler avant d'autoriser un envoi réel.
     public static function est_active() {
+        $etat = self::etat();
+        return ! empty( $etat['valide'] );
+    }
+
+    // État de la licence (avec cache) : ['valide' => bool, 'message' => string].
+    public static function etat() {
         $cle = self::cle_enregistree();
-        if ( ! $cle ) return false;
+        if ( ! $cle ) return array( 'valide' => false, 'message' => '' );
 
         $etat = get_transient( self::TRANSIENT_ETAT );
         if ( $etat === false ) {
             $etat = self::verifier_cle( $cle );
             set_transient( self::TRANSIENT_ETAT, $etat, self::CACHE_DUREE );
         }
-        return ! empty( $etat['valide'] );
+        return $etat;
     }
 
     // Appel réseau vers le service Connex. Retourne toujours un tableau
@@ -73,6 +81,10 @@ class Seliweb_Media_Licence {
         }
 
         $corps = json_decode( wp_remote_retrieve_body( $reponse ), true );
+        // La clé est liée au premier site qui l'a présentée (Connex Licences).
+        if ( empty( $corps['valide'] ) && ( $corps['motif'] ?? '' ) === 'autre_site' ) {
+            return array( 'valide' => false, 'message' => __( 'Clé déjà utilisée par un autre site.', 'seliwebmedia' ) );
+        }
         if ( empty( $corps['valide'] ) ) {
             return array( 'valide' => false, 'message' => __( 'Clé API invalide ou expirée.', 'seliwebmedia' ) );
         }
@@ -83,7 +95,7 @@ class Seliweb_Media_Licence {
     // Bouton "Vérifier maintenant" de l'écran Licence — force une nouvelle
     // vérification au lieu d'attendre l'expiration du cache.
     public static function handle_verification_manuelle() {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! Seliweb_Media_Droits::est_admin() ) {
             wp_die( esc_html__( 'Accès refusé.', 'seliwebmedia' ) );
         }
         check_admin_referer( 'seliwebmedia_verifier_licence' );

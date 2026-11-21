@@ -59,6 +59,7 @@ class Seliweb_Media_Parametres {
             'general' => __( 'Tableau de bord', 'seliwebmedia' ),
             'licence' => __( 'Licence', 'seliwebmedia' ),
             'mail'    => __( 'Mails', 'seliwebmedia' ),
+            'gestionnaires' => __( 'Gestionnaires', 'seliwebmedia' ),
         );
         foreach ( $onglets as $key => $label ) {
             $url = admin_url( 'admin.php?page=seliwebmedia&tab=' . $key );
@@ -70,6 +71,8 @@ class Seliweb_Media_Parametres {
             self::tab_licence();
         } elseif ( $tab === 'mail' ) {
             self::tab_mail();
+        } elseif ( $tab === 'gestionnaires' ) {
+            Seliweb_Media_Droits::tab_gestionnaires();
         } else {
             self::tab_general();
         }
@@ -120,7 +123,8 @@ class Seliweb_Media_Parametres {
         }
 
         $cle        = Seliweb_Media_Licence::cle_enregistree();
-        $licence_ok = Seliweb_Media_Licence::est_active();
+        $etat       = Seliweb_Media_Licence::etat();
+        $licence_ok = ! empty( $etat['valide'] );
         ?>
         <p class="description" style="max-width:700px;">
             <?php esc_html_e( "La clé API est fournie par l'association Connex. Sans clé valide, SeliwebMedia reste installable mais les envois (listes de diffusion, newsletters, réseaux sociaux) sont désactivés.", 'seliwebmedia' ); ?>
@@ -138,7 +142,8 @@ class Seliweb_Media_Parametres {
                         <p class="description">
                             <?php echo $licence_ok
                                 ? '<span style="color:#1d6a4a;">' . esc_html__( 'Licence active.', 'seliwebmedia' ) . '</span>'
-                                : '<span style="color:#b32d2e;">' . esc_html__( 'Licence inactive.', 'seliwebmedia' ) . '</span>'; ?>
+                                : '<span style="color:#b32d2e;">' . esc_html__( 'Licence inactive.', 'seliwebmedia' )
+                                    . ( $cle && ! empty( $etat['message'] ) ? ' ' . esc_html( $etat['message'] ) : '' ) . '</span>'; ?>
                         </p>
                     </td>
                 </tr>
@@ -220,7 +225,7 @@ class Seliweb_Media_Parametres {
     }
 
     public static function handle_save_mail() {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! Seliweb_Media_Droits::est_admin() ) {
             wp_die( esc_html__( 'Accès refusé.', 'seliwebmedia' ) );
         }
         check_admin_referer( 'seliwebmedia_save_mail' );
@@ -240,7 +245,7 @@ class Seliweb_Media_Parametres {
     }
 
     public static function handle_save_licence() {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! Seliweb_Media_Droits::est_admin() ) {
             wp_die( esc_html__( 'Accès refusé.', 'seliwebmedia' ) );
         }
         check_admin_referer( 'seliwebmedia_save_licence' );
