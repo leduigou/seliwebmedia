@@ -1,6 +1,6 @@
 # SeliwebMedia
 
-Extension WordPress libre et gratuite : listes de diffusion, newsletters et gestion des réseaux sociaux — en lien avec les groupes de l'extension [**Seliweb-WP**](https://github.com/leduigou/seliweb) si elle est active sur le même site.
+Extension WordPress proposée par l'association Connex, sur abonnement : listes de diffusion, newsletters et gestion des réseaux sociaux — en lien avec les groupes de l'extension [**Seliweb-WP**](https://github.com/leduigou/seliweb) si elle est active sur le même site.
 
 SeliwebMedia fonctionne de façon autonome (listes de diffusion et newsletters classiques) même sans Seliweb-WP. L'envoi de messages directement aux groupes d'un SEL nécessite que Seliweb-WP soit installée et active sur le même site.
 
@@ -12,21 +12,30 @@ SeliwebMedia fonctionne de façon autonome (listes de diffusion et newsletters c
 
 ## Installation
 
-1. Téléchargez le zip de la [dernière release](https://github.com/leduigou/seliwebmedia/releases/latest) (`seliwebmedia-X.Y.Z.zip`).
+1. Demandez à l'association Connex le fichier `seliwebmedia.zip` et votre clé d'abonnement.
 2. Dans l'administration WordPress : **Extensions → Ajouter une extension → Téléverser une extension**, sélectionnez le zip téléchargé, puis **Installer**.
 3. Activez l'extension : le menu **SeliwebMedia** apparaît dans la colonne de gauche, sous Seliweb.
+4. Saisissez la clé dans **SeliwebMedia → Paramétrage → Licence**.
 
 ## Licence (clé API Connex)
 
-L'extension est librement téléchargeable et installable. L'utilisation des fonctions d'envoi (listes de diffusion, newsletters, réseaux sociaux) nécessite une clé API fournie par l'association Connex, à saisir dans **SeliwebMedia → Licence**.
+L'abonnement Connex donne une clé, à saisir dans **SeliwebMedia → Paramétrage → Licence**. Elle autorise les envois (listes de diffusion, newsletters, réseaux sociaux) et les mises à jour. L'écran Licence affiche « Abonnement actif jusqu'au … » ou la raison d'un refus (clé inconnue, révoquée, abonnement expiré, clé d'un autre produit ou déjà utilisée par un autre site). Sans abonnement valide, les messages restent en brouillon et les messages programmés attendent. Un bandeau prévient 30 jours avant la fin de l'abonnement. Si Connex ne répond pas, la dernière vérification réussie reste valable 7 jours.
 
 Une clé sert à un seul site : le premier site qui l'utilise lui est lié. Saisie sur un autre site, elle est refusée (« Clé déjà utilisée par un autre site »). Pour changer de site (nouveau nom de domaine), Connex délie la clé dans Connex Licences.
 
 ## Mises à jour
 
-Les nouvelles versions sont publiées sur ce dépôt GitHub et détectées automatiquement par WordPress (Extensions / Mises à jour), comme pour une extension classique du répertoire officiel.
+Les nouvelles versions sont distribuées par Connex Licences (connex-asso.net) aux sites dont l'abonnement est valide. WordPress les affiche comme pour une extension classique (Extensions / Mises à jour). Les mises à jour automatiques s'activent dans l'écran Extensions. Aucune mise à jour n'est proposée sur un site local ni sur une copie de développement.
 
 ## Changelog
+
+### 0.6.12
+- Abonnement et mises à jour par Connex Licences (connex-asso.net), comme AbeloMag : le dépôt GitHub devient privé. Une seule vérification auprès de Connex sert à tout : envois, échéance affichée, mises à jour.
+- Écran Licence : « Abonnement actif jusqu'au … » ou la raison précise d'un refus (clé inconnue, révoquée, abonnement expiré, autre produit, autre site). Si Connex ne répond pas, la dernière vérification réussie reste valable 7 jours.
+- Envois soumis à l'abonnement : sans abonnement valide, un message envoyé reste en brouillon et les messages programmés attendent ; ils partent dès que l'abonnement est de nouveau valide.
+- Bandeau 30 jours avant la fin de l'abonnement (tableau de bord WordPress et écrans SeliwebMedia, administrateurs seulement).
+- Pas de mise à jour sur un site local ni sur une copie de développement.
+- Manuel utilisateur (PDF) dans `docs/`, téléchargeable depuis Paramétrage → Tableau de bord.
 
 ### 0.6.11
 - Droits d'accès : nouvel onglet **Gestionnaires** dans Paramétrage, même principe que Seliweb. L'administrateur donne à des comptes du site (reliés ou non à Seliweb) un niveau par module : Mails, SMS et Newsletter (ces deux derniers à venir), chacun Aucun / Lecture / Modification / Création-suppression. Lecture : consulter listes, destinataires et messages. Modification : modifier les listes, leurs destinataires et les brouillons. Création-suppression : créer, dupliquer, supprimer, et envoyer ou programmer un message.

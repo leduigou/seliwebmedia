@@ -82,7 +82,8 @@ class Seliweb_Media_Parametres {
 
     private static function tab_general() {
         $seliweb_ok = Seliweb_Media_Integration::est_disponible();
-        $licence_ok = Seliweb_Media_Licence::est_active();
+        $abonnement = Seliweb_Media_Licence::etat();
+        $licence_ok = $abonnement['valide'];
         ?>
         <table class="form-table" style="max-width:700px;">
             <tr>
@@ -100,18 +101,28 @@ class Seliweb_Media_Parametres {
                 </td>
             </tr>
             <tr>
+                <th><?php esc_html_e( 'Mises à jour', 'seliwebmedia' ); ?></th>
+                <td><?php echo esc_html( Seliweb_Media_Updater::statut() ); ?></td>
+            </tr>
+            <tr>
                 <th><?php esc_html_e( 'Licence Connex', 'seliwebmedia' ); ?></th>
                 <td>
-                    <?php if ( $licence_ok ) : ?>
-                        <span style="color:#1d6a4a;"><?php esc_html_e( 'Active.', 'seliwebmedia' ); ?></span>
-                    <?php else : ?>
-                        <span style="color:#b32d2e;"><?php esc_html_e( 'Inactive.', 'seliwebmedia' ); ?></span>
-                    <?php endif; ?>
+                    <span style="color:<?php echo $licence_ok ? '#1d6a4a' : '#b32d2e'; ?>;"><?php echo esc_html( $abonnement['message'] ); ?></span>
                     &nbsp;<a href="<?php echo esc_url( admin_url( 'admin.php?page=seliwebmedia&tab=licence' ) ); ?>"><?php esc_html_e( 'Gérer', 'seliwebmedia' ); ?></a>
                 </td>
             </tr>
         </table>
         <?php
+        // Manuel utilisateur (PDF livré avec l'extension, dans docs/).
+        $doc = 'docs/Manuel-Utilisateur-SeliwebMedia.pdf';
+        if ( file_exists( SELIWEBMEDIA_DIR . $doc ) ) : ?>
+            <p style="margin-top:20px;">
+                <a href="<?php echo esc_url( SELIWEBMEDIA_URL . $doc ); ?>" class="button" download>
+                    <span class="dashicons dashicons-media-document" style="vertical-align:text-bottom;"></span>
+                    <?php esc_html_e( 'Télécharger la doc', 'seliwebmedia' ); ?>
+                </a>
+            </p>
+        <?php endif;
     }
 
     private static function tab_licence() {
@@ -127,7 +138,7 @@ class Seliweb_Media_Parametres {
         $licence_ok = ! empty( $etat['valide'] );
         ?>
         <p class="description" style="max-width:700px;">
-            <?php esc_html_e( "La clé API est fournie par l'association Connex. Sans clé valide, SeliwebMedia reste installable mais les envois (listes de diffusion, newsletters, réseaux sociaux) sont désactivés.", 'seliwebmedia' ); ?>
+            <?php esc_html_e( "La clé API est fournie par l'association Connex avec l'abonnement. Elle est liée à ce site. Sans abonnement valide, SeliwebMedia reste installé mais les envois (listes de diffusion, newsletters, réseaux sociaux) et les mises à jour sont désactivés.", 'seliwebmedia' ); ?>
         </p>
 
         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="max-width:700px;margin-top:16px;">
@@ -140,12 +151,13 @@ class Seliweb_Media_Parametres {
                         <input type="text" id="seliwebmedia_cle" name="seliwebmedia_cle" class="regular-text"
                                value="<?php echo esc_attr( $cle ); ?>">
                         <p class="description">
-                            <?php echo $licence_ok
-                                ? '<span style="color:#1d6a4a;">' . esc_html__( 'Licence active.', 'seliwebmedia' ) . '</span>'
-                                : '<span style="color:#b32d2e;">' . esc_html__( 'Licence inactive.', 'seliwebmedia' )
-                                    . ( $cle && ! empty( $etat['message'] ) ? ' ' . esc_html( $etat['message'] ) : '' ) . '</span>'; ?>
+                            <span style="color:<?php echo $licence_ok ? '#1d6a4a' : '#b32d2e'; ?>;font-weight:600;"><?php echo esc_html( $etat['message'] ); ?></span>
                         </p>
                     </td>
+                </tr>
+                <tr>
+                    <th><?php esc_html_e( 'Mises à jour', 'seliwebmedia' ); ?></th>
+                    <td><?php echo esc_html( Seliweb_Media_Updater::statut() ); ?></td>
                 </tr>
             </table>
             <?php submit_button( __( 'Enregistrer', 'seliwebmedia' ) ); ?>
@@ -251,7 +263,7 @@ class Seliweb_Media_Parametres {
         check_admin_referer( 'seliwebmedia_save_licence' );
 
         Seliweb_Media_Licence::enregistrer_cle( wp_unslash( $_POST['seliwebmedia_cle'] ?? '' ) );
-        Seliweb_Media_Licence::est_active(); // revérifie tout de suite, remplit le cache
+        Seliweb_Media_Licence::info( true ); // interroge Connex tout de suite
 
         wp_safe_redirect( admin_url( 'admin.php?page=seliwebmedia&tab=licence&updated=1' ) );
         exit;

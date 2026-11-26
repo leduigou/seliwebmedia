@@ -53,6 +53,12 @@ class Seliweb_Media_Messages {
         if ( isset( $_GET['deleted'] ) ) {
             echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Message supprimé.', 'seliwebmedia' ) . '</p></div>';
         }
+        $abonnement = Seliweb_Media_Licence::etat();
+        if ( isset( $_GET['envoi_refuse'] ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html( sprintf( __( "Message enregistré en brouillon, mais non envoyé : l'abonnement SeliwebMedia n'est pas valide. %s", 'seliwebmedia' ), $abonnement['message'] ) ) . '</p></div>';
+        } elseif ( ! $abonnement['valide'] ) {
+            echo '<div class="notice notice-warning"><p>' . esc_html( sprintf( __( "Envois suspendus : l'abonnement SeliwebMedia n'est pas valide. %s Les messages programmés partiront dès qu'il le sera de nouveau.", 'seliwebmedia' ), $abonnement['message'] ) ) . '</p></div>';
+        }
 
         $filtre = isset( $_GET['filtre'] ) && $_GET['filtre'] === 'archives' ? 'archives' : 'actifs';
 
@@ -454,8 +460,12 @@ class Seliweb_Media_Messages {
         self::enregistrer_cibles( $message_id, $cibles );
 
         // Envoi immédiat si le bouton "Envoyer" a été utilisé sans date choisie.
+        // Sans abonnement valide, le message reste en brouillon.
         if ( ! $en_brouillon && ! $date_envoi_prevue ) {
-            Seliweb_Media_Mail_Queue::expedier_message( $message_id );
+            if ( ! Seliweb_Media_Mail_Queue::expedier_message( $message_id ) ) {
+                wp_safe_redirect( admin_url( 'admin.php?page=seliwebmedia_listes&tab=messages&envoi_refuse=1' ) );
+                exit;
+            }
         }
 
         wp_safe_redirect( admin_url( 'admin.php?page=seliwebmedia_listes&tab=messages&updated=1' ) );

@@ -2,151 +2,157 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
- * Branche le mécanisme de mise à jour natif de WordPress sur le dépôt
- * GitHub leduigou/seliwebmedia — même principe que Seliweb_Updater côté
- * Seliweb, simplifié (un seul composant : pas de thème associé).
+ * Mises à jour de SeliwebMedia par Connex Licences (connex-asso.net), comme
+ * AbeloMag. Le dépôt GitHub est privé : seul Connex Licences y a accès.
+ *
+ * - L'en-tête « Update URI: https://www.connex-asso.net/seliwebmedia » de
+ *   l'extension indique à WordPress de ne pas la chercher sur wordpress.org
+ *   et de demander sa version au filtre update_plugins_www.connex-asso.net.
+ * - La version vient de la même réponse que l'abonnement
+ *   (Seliweb_Media_Licence::info(), service mise-a-jour).
+ * - Le téléchargement passe par le service telecharger de Connex Licences,
+ *   qui contrôle la clé et le site (en-têtes X-Connex-Cle / X-Connex-Site,
+ *   jamais dans l'adresse) puis renvoie vers une adresse temporaire du zip.
+ * - Jamais de mise à jour sur un site local ni sur une copie de
+ *   développement (dossier suivi par git) : elle remplacerait le code en
+ *   cours d'écriture.
  */
 class Seliweb_Media_Updater {
 
-    const GH_USER  = 'leduigou';
-    const GH_REPO  = 'seliwebmedia';
-    const PLUGIN_SLUG = 'seliwebmedia';
-
-    private static function plugin_file() {
-        return defined( 'SELIWEBMEDIA_PLUGIN_FILE' ) ? SELIWEBMEDIA_PLUGIN_FILE : self::PLUGIN_SLUG . '/seliwebmedia.php';
-    }
+    const PAQUET = 'seliwebmedia';
 
     public static function init() {
-        add_filter( 'pre_set_site_transient_update_plugins', array( __CLASS__, 'check_plugin_update' ) );
-        add_filter( 'plugins_api',                           array( __CLASS__, 'plugin_info' ), 10, 3 );
-        add_filter( 'upgrader_post_install',                 array( __CLASS__, 'post_install' ), 10, 3 );
-        add_action( 'delete_site_transient_update_plugins',  array( __CLASS__, 'clear_release_cache' ) );
+        add_filter( 'update_plugins_www.connex-asso.net', array( __CLASS__, 'version_disponible' ), 10, 3 );
+        add_filter( 'upgrader_pre_download', array( __CLASS__, 'telecharger' ), 10, 2 );
+        add_filter( 'plugins_api', array( __CLASS__, 'fiche' ), 10, 3 );
     }
 
-    public static function clear_release_cache() {
-        delete_transient( 'seliwebmedia_gh_release' );
+    private static function plugin_file() {
+        return defined( 'SELIWEBMEDIA_PLUGIN_FILE' ) ? SELIWEBMEDIA_PLUGIN_FILE : 'seliwebmedia/seliwebmedia.php';
     }
 
-    private static function get_release() {
-        $transient_key = 'seliwebmedia_gh_release';
-        $cached = get_transient( $transient_key );
-        if ( $cached !== false ) return $cached;
+    // Site local (WP_ENVIRONMENT_TYPE = local) ou copie suivie par git : pas de mise à jour.
+    public static function est_developpement() {
+        return 'local' === wp_get_environment_type() || is_dir( SELIWEBMEDIA_DIR . '.git' );
+    }
 
-        $url      = 'https://api.github.com/repos/' . self::GH_USER . '/' . self::GH_REPO . '/releases/latest';
-        $response = wp_remote_get( $url, array(
-            'timeout' => 10,
-            'headers' => array(
-                'Accept'     => 'application/vnd.github.v3+json',
-                'User-Agent' => 'WordPress/' . get_bloginfo('version') . '; ' . get_bloginfo('url'),
+    /** Dernière version selon Connex : array( version, notes, date, telechargement ) ou WP_Error. */
+    public static function derniere_version() {
+        $info = Seliweb_Media_Licence::info();
+        if ( is_wp_error( $info ) ) {
+            return $info;
+        }
+        if ( ! $info['valide'] ) {
+            $motifs = Seliweb_Media_Licence::motifs();
+            return new WP_Error( 'refus', $motifs[ $info['motif'] ] ?? __( 'Clé refusée par Connex.', 'seliwebmedia' ) );
+        }
+        $p = isset( $info['paquets'][ self::PAQUET ] ) ? (array) $info['paquets'][ self::PAQUET ] : array();
+        if ( ! empty( $p['erreur'] ) ) {
+            return new WP_Error( 'paquet', sprintf( __( 'Connex : %s', 'seliwebmedia' ), sanitize_text_field( $p['erreur'] ) ) );
+        }
+        if ( empty( $p['version'] ) || empty( $p['telechargement'] ) ) {
+            return new WP_Error( 'paquet', __( 'Connex ne propose pas encore de version de SeliwebMedia.', 'seliwebmedia' ) );
+        }
+        return array(
+            'version'        => sanitize_text_field( $p['version'] ),
+            'notes'          => isset( $p['notes'] ) ? (string) $p['notes'] : '',
+            'date'           => isset( $p['date'] ) ? sanitize_text_field( $p['date'] ) : '',
+            'telechargement' => esc_url_raw( $p['telechargement'] ),
+        );
+    }
+
+    // WordPress range la réponse en « mise à jour disponible » ou « à jour » ;
+    // dans les deux cas, le lien des mises à jour automatiques s'affiche.
+    public static function version_disponible( $update, $plugin_data, $plugin_file ) {
+        if ( self::plugin_file() !== $plugin_file || self::est_developpement() ) {
+            return $update;
+        }
+        $v = self::derniere_version();
+        if ( is_wp_error( $v ) ) {
+            return $update;
+        }
+        return array(
+            'id'           => 'https://www.connex-asso.net/seliwebmedia',
+            'slug'         => self::PAQUET,
+            'version'      => $v['version'],
+            'url'          => 'https://www.connex-asso.net/',
+            'package'      => $v['telechargement'],
+            'requires'     => '6.0',
+            'requires_php' => '7.4',
+        );
+    }
+
+    public static function telecharger( $reply, $package ) {
+        if ( false !== $reply || ! is_string( $package ) || false === strpos( $package, 'connex-licences/v1/telecharger' ) ) {
+            return $reply;
+        }
+        $hote_paquet = preg_replace( '/^www\./', '', (string) wp_parse_url( $package, PHP_URL_HOST ) );
+        $hote_connex = preg_replace( '/^www\./', '', (string) wp_parse_url( Seliweb_Media_Licence::url_connex(), PHP_URL_HOST ) );
+        if ( $hote_paquet !== $hote_connex || false === strpos( $package, 'paquet=' . self::PAQUET ) ) {
+            return $reply; // paquet d'une autre extension (AbeloMag…) : elle s'en charge
+        }
+        $res = wp_remote_get( $package, array(
+            'timeout'     => 30,
+            'redirection' => 0,
+            'headers'     => array(
+                'X-Connex-Cle'  => Seliweb_Media_Licence::cle_enregistree(),
+                'X-Connex-Site' => home_url(),
             ),
         ) );
-
-        if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) !== 200 ) {
-            return false;
+        if ( is_wp_error( $res ) ) {
+            return $res;
         }
-
-        $body = json_decode( wp_remote_retrieve_body( $response ) );
-        if ( empty( $body->tag_name ) ) return false;
-
-        // Préférer le zip joint à la release (construit par build-zip.sh) à
-        // l'archive source auto-générée par GitHub — voir Seliweb_Updater
-        // pour le piège rencontré avec un second fichier joint (ex. un PDF)
-        // placé avant le zip dans la réponse de l'API.
-        $zip_url = '';
-        if ( ! empty( $body->assets ) && is_array( $body->assets ) ) {
-            foreach ( $body->assets as $asset ) {
-                if ( ! empty( $asset->browser_download_url ) && preg_match( '/\.zip$/i', $asset->name ?? '' ) ) {
-                    $zip_url = $asset->browser_download_url;
-                    break;
-                }
-            }
+        $code     = (int) wp_remote_retrieve_response_code( $res );
+        $location = wp_remote_retrieve_header( $res, 'location' );
+        if ( is_array( $location ) ) {
+            $location = reset( $location );
         }
-        if ( ! $zip_url ) {
-            $zip_url = $body->zipball_url ?? '';
+        if ( $code >= 300 && $code < 400 && $location ) {
+            return download_url( (string) $location, 300 );
         }
-
-        $release = array(
-            'version'  => ltrim( $body->tag_name, 'v' ),
-            'zip_url'  => $zip_url,
-            'page_url' => $body->html_url ?? '',
-            'notes'    => $body->body     ?? '',
-        );
-
-        set_transient( $transient_key, $release, 6 * HOUR_IN_SECONDS );
-        return $release;
+        return new WP_Error( 'seliwebmedia_telechargement', sprintf(
+            __( 'Téléchargement refusé par Connex (code %d) : vérifiez la clé dans SeliwebMedia → Paramétrage → Licence.', 'seliwebmedia' ), $code
+        ) );
     }
 
-    public static function check_plugin_update( $transient ) {
-        if ( empty( $transient->checked ) ) return $transient;
-
-        $release = self::get_release();
-        if ( ! $release ) return $transient;
-
-        $plugin_file = self::plugin_file();
-        if ( version_compare( $release['version'], SELIWEBMEDIA_VERSION, '>' ) ) {
-            $transient->response[ $plugin_file ] = (object) array(
-                'slug'        => self::PLUGIN_SLUG,
-                'plugin'      => $plugin_file,
-                'new_version' => $release['version'],
-                'url'         => $release['page_url'],
-                'package'     => $release['zip_url'],
-            );
-        } else {
-            $transient->no_update[ $plugin_file ] = (object) array(
-                'slug'        => self::PLUGIN_SLUG,
-                'plugin'      => $plugin_file,
-                'new_version' => $release['version'],
-                'url'         => $release['page_url'],
-                'package'     => '',
-            );
+    // Fenêtre « Afficher les détails » de l'écran Extensions.
+    public static function fiche( $res, $action, $args ) {
+        if ( 'plugin_information' !== $action || ! isset( $args->slug ) || self::PAQUET !== $args->slug ) {
+            return $res;
         }
-
-        return $transient;
-    }
-
-    public static function plugin_info( $result, $action, $args ) {
-        if ( $action !== 'plugin_information' ) return $result;
-        if ( ( $args->slug ?? '' ) !== self::PLUGIN_SLUG ) return $result;
-
-        $release = self::get_release();
-        if ( ! $release ) return $result;
-
+        $v = self::derniere_version();
+        if ( is_wp_error( $v ) ) {
+            return $v;
+        }
+        $notes = '' !== trim( $v['notes'] ) ? wpautop( esc_html( $v['notes'] ) ) : '<p>' . esc_html__( 'Pas de note pour cette version.', 'seliwebmedia' ) . '</p>';
         return (object) array(
             'name'          => 'SeliwebMedia',
-            'slug'          => self::PLUGIN_SLUG,
-            'version'       => $release['version'],
-            'author'        => '<a href="https://github.com/' . self::GH_USER . '">Philippe Le Duigou</a>',
-            'homepage'      => 'https://github.com/' . self::GH_USER . '/' . self::GH_REPO,
+            'slug'          => self::PAQUET,
+            'version'       => $v['version'],
+            'author'        => 'Philippe Le Duigou',
+            'homepage'      => 'https://www.connex-asso.net/',
             'requires'      => '6.0',
-            'tested'        => get_bloginfo('version'),
+            'requires_php'  => '7.4',
+            'last_updated'  => $v['date'],
+            'download_link' => $v['telechargement'],
             'sections'      => array(
-                'description' => "Listes de diffusion, newsletters et gestion des réseaux sociaux, en lien avec les groupes de l'extension Seliweb-WP.",
-                'changelog'   => '<pre>' . esc_html( $release['notes'] ) . '</pre>',
+                'description' => '<p>' . esc_html__( "Listes de diffusion, newsletters et gestion des réseaux sociaux — en lien avec les groupes de l'extension Seliweb-WP si elle est active.", 'seliwebmedia' ) . '</p>',
+                'changelog'   => '<h4>' . esc_html( sprintf( __( 'Version %s', 'seliwebmedia' ), $v['version'] ) ) . '</h4>' . $notes,
             ),
-            'download_link' => $release['zip_url'],
         );
     }
 
-    // Garantit que le dossier porte le nom canonique "seliwebmedia/" après
-    // une mise à jour — même piège/raisonnement que Seliweb_Updater::post_install().
-    public static function post_install( $response, $hook_extra, $result ) {
-        global $wp_filesystem;
-
-        $plugin_file_avant = self::plugin_file();
-        if ( ( $hook_extra['plugin'] ?? '' ) !== $plugin_file_avant ) return $result;
-
-        $dest = WP_PLUGIN_DIR . '/' . self::PLUGIN_SLUG;
-        if ( basename( untrailingslashit( (string) $result['destination'] ) ) !== self::PLUGIN_SLUG ) {
-            $etait_actif = is_plugin_active( $plugin_file_avant );
-            $wp_filesystem->move( $result['destination'], $dest, true );
-            $result['destination']       = $dest;
-            $result['destination_name']  = self::PLUGIN_SLUG;
-            $result['remote_destination'] = $dest;
-            if ( $etait_actif ) {
-                activate_plugin( self::PLUGIN_SLUG . '/seliwebmedia.php' );
-            }
+    /** Ligne d'état pour l'écran Licence et le tableau de bord SeliwebMedia. */
+    public static function statut() {
+        $v = self::derniere_version();
+        if ( is_wp_error( $v ) ) {
+            return $v->get_error_message();
         }
-        delete_transient( 'seliwebmedia_gh_release' );
-        return $result;
+        if ( self::est_developpement() ) {
+            return sprintf( __( 'Site local ou copie de développement : pas de mise à jour automatique. Dernière version publiée : %s.', 'seliwebmedia' ), $v['version'] );
+        }
+        return version_compare( $v['version'], SELIWEBMEDIA_VERSION, '>' )
+            ? sprintf( __( 'Version %s disponible (Tableau de bord → Mises à jour, ou écran Extensions).', 'seliwebmedia' ), $v['version'] )
+            : __( 'À jour.', 'seliwebmedia' );
     }
 }

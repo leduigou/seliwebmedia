@@ -20,9 +20,10 @@ fi
 
 version=$(grep -m1 "SELIWEBMEDIA_VERSION" seliwebmedia.php | sed -E "s/.*'([0-9.]+)'.*/\1/")
 out_dir="dist"
-out_file="${out_dir}/seliwebmedia-${version}.zip"
+# Nom exact attendu par Connex Licences sur la release GitHub : seliwebmedia.zip
+out_file="${out_dir}/seliwebmedia.zip"
 
 mkdir -p "$out_dir"
 git archive --format=zip --prefix=seliwebmedia/ -o "$out_file" HEAD
 
-echo "Zip généré : $out_file ($(du -h "$out_file" | cut -f1))"
+echo "Zip généré : $out_file (version ${version}, $(du -h "$out_file" | cut -f1))"

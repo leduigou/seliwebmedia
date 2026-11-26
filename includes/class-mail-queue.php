@@ -43,7 +43,11 @@ class Seliweb_Media_Mail_Queue {
     // destinataires (jamais avant cet instant). Appelée immédiatement à la
     // création d'un message sans date d'envoi, ou par traiter() quand la
     // date programmée est atteinte.
+    // Retourne false sans rien changer si l'abonnement n'autorise pas l'envoi.
     public static function expedier_message( $message_id ) {
+        if ( ! Seliweb_Media_Licence::est_active() ) {
+            return false;
+        }
         global $wpdb;
         $tm = $wpdb->prefix . 'seliwebmedia_messages';
 
@@ -53,9 +57,16 @@ class Seliweb_Media_Mail_Queue {
         ), array( 'id' => $message_id ) );
 
         Seliweb_Media_Messages::construire_destinataires( $message_id );
+        return true;
     }
 
     public static function traiter() {
+        // Sans abonnement valide, rien ne part : les messages programmés et
+        // les envois en cours attendent, et reprennent dès que l'abonnement
+        // est de nouveau valide.
+        if ( ! Seliweb_Media_Licence::est_active() ) {
+            return;
+        }
         global $wpdb;
         $tm = $wpdb->prefix . 'seliwebmedia_messages';
         $td = $wpdb->prefix . 'seliwebmedia_message_destinataires';

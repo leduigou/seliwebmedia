@@ -2,8 +2,10 @@
 /*
  * Plugin Name: SeliwebMedia
  * Description: Listes de diffusion, newsletters et gestion des réseaux sociaux — en lien avec les groupes de l'extension Seliweb-WP si elle est active.
- * Version: 0.6.11
+ * Version: 0.6.12
  * Author: Philippe Le Duigou
+ * Plugin URI: https://www.connex-asso.net/
+ * Update URI: https://www.connex-asso.net/seliwebmedia
  * Text Domain: seliwebmedia
  * Domain Path: /languages
  * Requires at least: 6.0
@@ -14,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'SELIWEBMEDIA_VERSION', '0.6.11' );
+define( 'SELIWEBMEDIA_VERSION', '0.6.12' );
 define( 'SELIWEBMEDIA_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'SELIWEBMEDIA_URL',     plugin_dir_url( __FILE__ ) );
 // Chemin réel tel que WordPress l'a chargé (dossier/fichier.php) — même

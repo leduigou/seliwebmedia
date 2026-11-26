@@ -1,0 +1,3 @@
+# Le manuel se maintient au format .odt en local ; seul le PDF est publié.
+docs/*.odt
+dist/
