@@ -2,10 +2,10 @@
 /*
  * Plugin Name: SeliwebMedia
  * Description: Listes de diffusion, newsletters et gestion des réseaux sociaux — en lien avec les groupes de l'extension Seliweb-WP si elle est active.
- * Version: 0.6.12
+ * Version: 0.6.13
  * Author: Philippe Le Duigou
  * Plugin URI: https://www.connex-asso.net/
- * Update URI: https://www.connex-asso.net/seliwebmedia
+ * Update URI: https://github.com/leduigou/seliwebmedia
  * Text Domain: seliwebmedia
  * Domain Path: /languages
  * Requires at least: 6.0
@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'SELIWEBMEDIA_VERSION', '0.6.12' );
+define( 'SELIWEBMEDIA_VERSION', '0.6.13' );
 define( 'SELIWEBMEDIA_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'SELIWEBMEDIA_URL',     plugin_dir_url( __FILE__ ) );
 // Chemin réel tel que WordPress l'a chargé (dossier/fichier.php) — même
@@ -27,6 +27,7 @@ define( 'SELIWEBMEDIA_PLUGIN_FILE', plugin_basename( __FILE__ ) );
 require_once SELIWEBMEDIA_DIR . 'includes/class-database.php';
 require_once SELIWEBMEDIA_DIR . 'includes/class-droits.php';
 require_once SELIWEBMEDIA_DIR . 'includes/class-licence.php';
+require_once SELIWEBMEDIA_DIR . 'includes/class-quota.php';
 require_once SELIWEBMEDIA_DIR . 'includes/class-integration-seliweb.php';
 require_once SELIWEBMEDIA_DIR . 'includes/class-parametres.php';
 require_once SELIWEBMEDIA_DIR . 'includes/class-listes.php';

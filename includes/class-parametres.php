@@ -57,7 +57,7 @@ class Seliweb_Media_Parametres {
         echo '<nav class="nav-tab-wrapper">';
         $onglets = array(
             'general' => __( 'Tableau de bord', 'seliwebmedia' ),
-            'licence' => __( 'Licence', 'seliwebmedia' ),
+            'licence' => __( 'Déblocage', 'seliwebmedia' ),
             'mail'    => __( 'Mails', 'seliwebmedia' ),
             'gestionnaires' => __( 'Gestionnaires', 'seliwebmedia' ),
         );
@@ -82,8 +82,7 @@ class Seliweb_Media_Parametres {
 
     private static function tab_general() {
         $seliweb_ok = Seliweb_Media_Integration::est_disponible();
-        $abonnement = Seliweb_Media_Licence::etat();
-        $licence_ok = $abonnement['valide'];
+        $licence_ok = Seliweb_Media_Quota::est_debloque();
         ?>
         <table class="form-table" style="max-width:700px;">
             <tr>
@@ -105,9 +104,9 @@ class Seliweb_Media_Parametres {
                 <td><?php echo esc_html( Seliweb_Media_Updater::statut() ); ?></td>
             </tr>
             <tr>
-                <th><?php esc_html_e( 'Licence Connex', 'seliwebmedia' ); ?></th>
+                <th><?php esc_html_e( 'Déblocage', 'seliwebmedia' ); ?></th>
                 <td>
-                    <span style="color:<?php echo $licence_ok ? '#1d6a4a' : '#b32d2e'; ?>;"><?php echo esc_html( $abonnement['message'] ); ?></span>
+                    <span style="color:<?php echo $licence_ok ? '#1d6a4a' : '#555'; ?>;"><?php echo esc_html( Seliweb_Media_Quota::etat_texte() ); ?></span>
                     &nbsp;<a href="<?php echo esc_url( admin_url( 'admin.php?page=seliwebmedia&tab=licence' ) ); ?>"><?php esc_html_e( 'Gérer', 'seliwebmedia' ); ?></a>
                 </td>
             </tr>
@@ -126,6 +125,18 @@ class Seliweb_Media_Parametres {
     }
 
     private static function tab_licence() {
+        $sous = ( ( $_GET['sous'] ?? '' ) === 'sms' ) ? 'sms' : 'mails';
+        $base = admin_url( 'admin.php?page=seliwebmedia&tab=licence' );
+        echo '<ul class="subsubsub" style="float:none;margin:0 0 12px;">';
+        echo '<li><a href="' . esc_url( $base ) . '" class="' . ( 'mails' === $sous ? 'current' : '' ) . '">' . esc_html__( 'Mails/Newsletter', 'seliwebmedia' ) . '</a> |</li>';
+        echo '<li><a href="' . esc_url( add_query_arg( 'sous', 'sms', $base ) ) . '" class="' . ( 'sms' === $sous ? 'current' : '' ) . '">' . esc_html__( 'SMS', 'seliwebmedia' ) . '</a></li>';
+        echo '</ul>';
+
+        if ( 'sms' === $sous ) {
+            echo '<p style="max-width:700px;"><em>' . esc_html__( 'En cours de développement.', 'seliwebmedia' ) . '</em></p>';
+            return;
+        }
+
         if ( isset( $_GET['updated'] ) ) {
             echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Clé enregistrée.', 'seliwebmedia' ) . '</p></div>';
         }
@@ -133,26 +144,35 @@ class Seliweb_Media_Parametres {
             echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Vérification effectuée.', 'seliwebmedia' ) . '</p></div>';
         }
 
-        $cle        = Seliweb_Media_Licence::cle_enregistree();
-        $etat       = Seliweb_Media_Licence::etat();
-        $licence_ok = ! empty( $etat['valide'] );
+        $cle      = Seliweb_Media_Licence::cle_enregistree();
+        $etat     = Seliweb_Media_Licence::etat();
+        $debloque = Seliweb_Media_Quota::est_debloque();
         ?>
-        <p class="description" style="max-width:700px;">
-            <?php esc_html_e( "La clé API est fournie par l'association Connex avec l'abonnement. Elle est liée à ce site. Sans abonnement valide, SeliwebMedia reste installé mais les envois (listes de diffusion, newsletters, réseaux sociaux) et les mises à jour sont désactivés.", 'seliwebmedia' ); ?>
+        <p style="max-width:720px;font-size:14px;font-weight:600;color:<?php echo $debloque ? '#1d6a4a' : '#333'; ?>;">
+            <?php echo esc_html( Seliweb_Media_Quota::etat_texte() ); ?>
+        </p>
+        <p class="description" style="max-width:720px;">
+            <?php printf(
+                esc_html__( "Sans clé de déblocage, SeliwebMedia fonctionne en version gratuite : %d envois par mois (mails et newsletters confondus, remis à zéro le 1er du mois) et la mention « Envoyé avec SeliwebMedia — connex-asso.net » en bas des messages. La clé de déblocage, fournie par l'association Connex, lève la limite et retire la mention. Elle est liée à ce site.", 'seliwebmedia' ),
+                (int) Seliweb_Media_Quota::plafond()
+            ); ?>
+            <a href="<?php echo esc_url( Seliweb_Media_Quota::URL_MENTION ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'En savoir plus', 'seliwebmedia' ); ?></a>
         </p>
 
-        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="max-width:700px;margin-top:16px;">
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="max-width:720px;margin-top:16px;">
             <?php wp_nonce_field( 'seliwebmedia_save_licence' ); ?>
             <input type="hidden" name="action" value="seliwebmedia_save_licence">
             <table class="form-table">
                 <tr>
-                    <th><label for="seliwebmedia_cle"><?php esc_html_e( 'Clé API', 'seliwebmedia' ); ?></label></th>
+                    <th><label for="seliwebmedia_cle"><?php esc_html_e( 'Clé de déblocage', 'seliwebmedia' ); ?></label></th>
                     <td>
                         <input type="text" id="seliwebmedia_cle" name="seliwebmedia_cle" class="regular-text"
                                value="<?php echo esc_attr( $cle ); ?>">
+                        <?php if ( '' !== $cle ) : ?>
                         <p class="description">
-                            <span style="color:<?php echo $licence_ok ? '#1d6a4a' : '#b32d2e'; ?>;font-weight:600;"><?php echo esc_html( $etat['message'] ); ?></span>
+                            <span style="color:<?php echo $debloque ? '#1d6a4a' : '#b32d2e'; ?>;font-weight:600;"><?php echo esc_html( $etat['message'] ); ?></span>
                         </p>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <tr>
@@ -163,6 +183,7 @@ class Seliweb_Media_Parametres {
             <?php submit_button( __( 'Enregistrer', 'seliwebmedia' ) ); ?>
         </form>
 
+        <?php if ( '' !== $cle ) : ?>
         <p>
             <a href="<?php echo esc_url( wp_nonce_url(
                 admin_url( 'admin-post.php?action=seliwebmedia_verifier_licence' ),
@@ -171,7 +192,7 @@ class Seliweb_Media_Parametres {
                 <?php esc_html_e( 'Vérifier maintenant', 'seliwebmedia' ); ?>
             </a>
         </p>
-        <?php
+        <?php endif;
     }
 
     private static function tab_mail() {

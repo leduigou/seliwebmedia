@@ -4,17 +4,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Abonnement SeliwebMedia, géré par l'association Connex (Connex Licences,
- * installé sur www.connex-asso.net).
+ * Clé de déblocage SeliwebMedia, fournie par l'association Connex (Connex
+ * Licences, installé sur www.connex-asso.net).
  *
- * Une seule vérification sert à tout : le site présente sa clé au service
- * mise-a-jour de Connex Licences ({ cle, site, produit: seliwebmedia }), qui
- * contrôle l'abonnement (clé active, échéance, produit, site lié) et renvoie
- * { valide, motif, echeance, paquets }. Cette réponse :
- *  - autorise ou non l'envoi des messages (voir est_active()) ;
- *  - donne l'échéance affichée (« Abonnement actif jusqu'au … ») et le
- *    bandeau 30 jours avant la fin ;
- *  - fournit la dernière version de l'extension (voir Seliweb_Media_Updater).
+ * Le site présente sa clé au service mise-a-jour de Connex Licences
+ * ({ cle, site, produit: seliwebmedia }), qui contrôle la clé (active,
+ * échéance, produit, site lié) et renvoie { valide, motif, echeance }.
+ * Clé valide : quota débloqué (pas de limite mensuelle ni de mention en bas
+ * des messages, voir Seliweb_Media_Quota). Pas de clé, ou clé expirée,
+ * révoquée ou refusée : version gratuite, jamais de blocage. Échéance
+ * affichée et bandeau 30 jours avant la fin pour les clés à échéance
+ * (abonnements d'hébergement). Les mises à jour sont libres et ne dépendent
+ * pas de la clé (voir Seliweb_Media_Updater).
  *
  * La clé est liée au premier site qui la présente : un autre site reçoit le
  * motif « autre_site ». Réponse gardée 6 h (1 h en cas d'erreur). Si Connex
@@ -155,8 +156,8 @@ class Seliweb_Media_Licence {
         return array(
             'valide'    => true,
             'message'   => $info['echeance']
-                ? sprintf( __( "Abonnement actif jusqu'au %s.", 'seliwebmedia' ), self::date_fr( $info['echeance'] ) )
-                : __( 'Abonnement actif, sans échéance.', 'seliwebmedia' ),
+                ? sprintf( __( "Quota SeliwebMedia débloqué jusqu'au %s.", 'seliwebmedia' ), self::date_fr( $info['echeance'] ) )
+                : __( 'Quota SeliwebMedia débloqué.', 'seliwebmedia' ),
             'echeance'  => $info['echeance'],
             'tolerance' => false,
         );
@@ -173,17 +174,21 @@ class Seliweb_Media_Licence {
         return $ts ? wp_date( 'd/m/Y', $ts ) : $ymd;
     }
 
-    /** Bandeau : abonnement qui se termine dans moins de 30 jours, ou abonnement refusé. '' sinon. */
+    /**
+     * Bandeau : déblocage qui se termine dans moins de 30 jours, ou clé
+     * saisie mais refusée (le site repasse en version gratuite). Rien sans
+     * clé : la version gratuite est un fonctionnement normal. '' sinon.
+     */
     public static function alerte() {
         if ( '' === self::cle_enregistree() ) {
-            return __( "SeliwebMedia : aucune clé d'abonnement renseignée. Les envois et les mises à jour sont désactivés.", 'seliwebmedia' );
+            return '';
         }
         $etat = self::etat();
         if ( ! $etat['valide'] ) {
-            return sprintf( __( 'SeliwebMedia : %s Les envois et les mises à jour sont désactivés.', 'seliwebmedia' ), $etat['message'] );
+            return sprintf( __( 'SeliwebMedia : %s SeliwebMedia fonctionne en version gratuite (%d envois par mois).', 'seliwebmedia' ), $etat['message'], Seliweb_Media_Quota::plafond() );
         }
         if ( $etat['echeance'] && $etat['echeance'] <= wp_date( 'Y-m-d', strtotime( '+' . self::JOURS_ALERTE . ' days' ) ) ) {
-            return sprintf( __( "L'abonnement SeliwebMedia se termine le %s : pensez à le renouveler auprès de l'association Connex.", 'seliwebmedia' ), self::date_fr( $etat['echeance'] ) );
+            return sprintf( __( "Le déblocage de SeliwebMedia se termine le %s : pensez à le renouveler auprès de l'association Connex.", 'seliwebmedia' ), self::date_fr( $etat['echeance'] ) );
         }
         return '';
     }
@@ -198,7 +203,7 @@ class Seliweb_Media_Licence {
         $etat = self::etat();
         $classe = $etat['valide'] ? 'notice-warning' : 'notice-error';
         echo '<div class="notice ' . esc_attr( $classe ) . '"><p>' . esc_html( $message )
-            . ' <a href="' . esc_url( admin_url( 'admin.php?page=seliwebmedia&tab=licence' ) ) . '">' . esc_html__( 'Voir la licence', 'seliwebmedia' ) . '</a></p></div>';
+            . ' <a href="' . esc_url( admin_url( 'admin.php?page=seliwebmedia&tab=licence' ) ) . '">' . esc_html__( 'Voir le déblocage', 'seliwebmedia' ) . '</a></p></div>';
     }
 
     // Bouton « Vérifier maintenant » de l'écran Licence.

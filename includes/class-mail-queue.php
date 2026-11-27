@@ -43,10 +43,18 @@ class Seliweb_Media_Mail_Queue {
     // destinataires (jamais avant cet instant). Appelée immédiatement à la
     // création d'un message sans date d'envoi, ou par traiter() quand la
     // date programmée est atteinte.
-    // Retourne false sans rien changer si l'abonnement n'autorise pas l'envoi.
+    // Version gratuite : le message ne part que s'il tient en entier dans ce
+    // qui reste du mois (jamais coupé). Retourne false sans rien changer
+    // sinon ; le nombre de destinataires est alors dans $dernier_refus.
+    public static $dernier_refus = 0;
+
     public static function expedier_message( $message_id ) {
-        if ( ! Seliweb_Media_Licence::est_active() ) {
-            return false;
+        if ( ! Seliweb_Media_Quota::est_debloque() ) {
+            $nb = count( Seliweb_Media_Messages::calculer_destinataires( $message_id ) );
+            if ( ! Seliweb_Media_Quota::peut_envoyer( $nb ) ) {
+                self::$dernier_refus = $nb;
+                return false;
+            }
         }
         global $wpdb;
         $tm = $wpdb->prefix . 'seliwebmedia_messages';
@@ -57,21 +65,18 @@ class Seliweb_Media_Mail_Queue {
         ), array( 'id' => $message_id ) );
 
         Seliweb_Media_Messages::construire_destinataires( $message_id );
+        Seliweb_Media_Quota::oublier();
         return true;
     }
 
     public static function traiter() {
-        // Sans abonnement valide, rien ne part : les messages programmés et
-        // les envois en cours attendent, et reprennent dès que l'abonnement
-        // est de nouveau valide.
-        if ( ! Seliweb_Media_Licence::est_active() ) {
-            return;
-        }
         global $wpdb;
         $tm = $wpdb->prefix . 'seliwebmedia_messages';
         $td = $wpdb->prefix . 'seliwebmedia_message_destinataires';
 
-        // 1) Messages programmés dont l'heure est arrivée.
+        // 1) Messages programmés dont l'heure est arrivée. En version gratuite,
+        //    un message qui ne tient plus dans le mois reste programmé et part
+        //    le mois suivant (expedier_message() refuse sans rien changer).
         $a_demarrer = $wpdb->get_col( $wpdb->prepare(
             "SELECT id FROM $tm WHERE statut='programme' AND date_envoi_prevue IS NOT NULL AND date_envoi_prevue <= %s",
             current_time( 'mysql' )
@@ -116,6 +121,7 @@ class Seliweb_Media_Mail_Queue {
         $lien_desabonnement = $d->token_desabonnement
             ? home_url( '/?swm_desabonner=' . rawurlencode( $d->token_desabonnement ) )
             : '';
+        $mention = Seliweb_Media_Quota::mention_active(); // version gratuite
 
         $headers = array();
         $from_email = Seliweb_Media_Parametres::from_email();
@@ -127,6 +133,7 @@ class Seliweb_Media_Mail_Queue {
         if ( $d->format === 'html' ) {
             $corps_html = Seliweb_Media_Messages::normaliser_corps_html( $corps );
             $lien_desabonnement_tpl = $lien_desabonnement;
+            $mention_tpl            = $mention ? array( Seliweb_Media_Quota::mention_texte(), Seliweb_Media_Quota::URL_MENTION ) : null;
             ob_start();
             include SELIWEBMEDIA_DIR . 'templates/mail-html.php';
             $html = ob_get_clean();
@@ -137,6 +144,9 @@ class Seliweb_Media_Mail_Queue {
         } else {
             if ( $lien_desabonnement ) {
                 $corps .= "\n\n" . __( 'Se désabonner :', 'seliwebmedia' ) . ' ' . $lien_desabonnement;
+            }
+            if ( $mention ) {
+                $corps .= "\n\n-- \n" . Seliweb_Media_Quota::mention_texte() . ' : ' . Seliweb_Media_Quota::URL_MENTION;
             }
             $ok = wp_mail( $d->email, $sujet, $corps, $headers );
         }

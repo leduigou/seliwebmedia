@@ -53,11 +53,13 @@ class Seliweb_Media_Messages {
         if ( isset( $_GET['deleted'] ) ) {
             echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Message supprimé.', 'seliwebmedia' ) . '</p></div>';
         }
-        $abonnement = Seliweb_Media_Licence::etat();
         if ( isset( $_GET['envoi_refuse'] ) ) {
-            echo '<div class="notice notice-error"><p>' . esc_html( sprintf( __( "Message enregistré en brouillon, mais non envoyé : l'abonnement SeliwebMedia n'est pas valide. %s", 'seliwebmedia' ), $abonnement['message'] ) ) . '</p></div>';
-        } elseif ( ! $abonnement['valide'] ) {
-            echo '<div class="notice notice-warning"><p>' . esc_html( sprintf( __( "Envois suspendus : l'abonnement SeliwebMedia n'est pas valide. %s Les messages programmés partiront dès qu'il le sera de nouveau.", 'seliwebmedia' ), $abonnement['message'] ) ) . '</p></div>';
+            echo '<div class="notice notice-error"><p>' . esc_html( __( 'Message enregistré en brouillon, mais non envoyé.', 'seliwebmedia' ) . ' '
+                . Seliweb_Media_Quota::raison_refus( (int) $_GET['envoi_refuse'] ) ) . '</p></div>';
+        }
+        if ( ! Seliweb_Media_Quota::est_debloque() ) {
+            echo '<div class="notice notice-info"><p>' . esc_html( Seliweb_Media_Quota::etat_texte() . ' '
+                . __( "Un message part en entier s'il tient dans ce qui reste ; sinon il attend le mois suivant.", 'seliwebmedia' ) ) . '</p></div>';
         }
 
         $filtre = isset( $_GET['filtre'] ) && $_GET['filtre'] === 'archives' ? 'archives' : 'actifs';
@@ -237,6 +239,9 @@ class Seliweb_Media_Messages {
             </table>
             <?php submit_button( __( 'Enregistrer brouillon', 'seliwebmedia' ), 'secondary', 'submit_action_brouillon', false, $confirmation_brouillon ? array( 'onclick' => "return confirm('{$confirmation_brouillon}')" ) : array() ); ?>
             &nbsp;
+            <?php if ( ! Seliweb_Media_Quota::est_debloque() ) : ?>
+            <p class="description" style="margin:0 0 8px;"><?php echo esc_html( sprintf( __( 'Version gratuite : il reste %1$d envois sur %2$d ce mois-ci. Un message part en entier s\'il tient dans ce qui reste.', 'seliwebmedia' ), Seliweb_Media_Quota::restant(), Seliweb_Media_Quota::plafond() ) ); ?></p>
+            <?php endif; ?>
             <?php if ( Seliweb_Media_Droits::peut( 'mails', 'envoyer' ) ) : ?>
             <?php submit_button( __( 'Envoyer', 'seliwebmedia' ), 'primary', 'submit_action_envoyer', false ); ?>
             <?php else : ?>
@@ -460,10 +465,10 @@ class Seliweb_Media_Messages {
         self::enregistrer_cibles( $message_id, $cibles );
 
         // Envoi immédiat si le bouton "Envoyer" a été utilisé sans date choisie.
-        // Sans abonnement valide, le message reste en brouillon.
+        // Version gratuite : s'il ne tient pas dans le quota du mois, il reste en brouillon.
         if ( ! $en_brouillon && ! $date_envoi_prevue ) {
             if ( ! Seliweb_Media_Mail_Queue::expedier_message( $message_id ) ) {
-                wp_safe_redirect( admin_url( 'admin.php?page=seliwebmedia_listes&tab=messages&envoi_refuse=1' ) );
+                wp_safe_redirect( admin_url( 'admin.php?page=seliwebmedia_listes&tab=messages&envoi_refuse=' . (int) Seliweb_Media_Mail_Queue::$dernier_refus ) );
                 exit;
             }
         }
@@ -511,10 +516,34 @@ class Seliweb_Media_Messages {
     // ----------------------------------------------------------------
     public static function construire_destinataires( $message_id ) {
         global $wpdb;
+        $td        = $wpdb->prefix . 'seliwebmedia_message_destinataires';
+        $par_email = self::calculer_destinataires( $message_id );
+
+        $maintenant = current_time( 'mysql' );
+        foreach ( $par_email as $destinataire ) {
+            $wpdb->insert( $td, array(
+                'message_id'          => $message_id,
+                'nom'                 => $destinataire['nom'],
+                'prenom'              => $destinataire['prenom'],
+                'code_postal'         => $destinataire['code_postal'],
+                'ville'               => $destinataire['ville'],
+                'email'               => $destinataire['email'],
+                'numero_membre'       => $destinataire['numero_membre'],
+                'token_desabonnement' => $destinataire['token_desabonnement'],
+                'statut_envoi'        => 'attente',
+            ) );
+        }
+
+        return count( $par_email );
+    }
+
+    // Destinataires d'un message, dédoublonnés par adresse, sans rien
+    // enregistrer (sert aussi au décompte de la version gratuite avant envoi).
+    public static function calculer_destinataires( $message_id ) {
+        global $wpdb;
         $tmc = $wpdb->prefix . 'seliwebmedia_message_cibles';
         $ta  = $wpdb->prefix . 'seliwebmedia_abonnements';
         $tc  = $wpdb->prefix . 'seliwebmedia_contacts';
-        $td  = $wpdb->prefix . 'seliwebmedia_message_destinataires';
 
         $cibles = $wpdb->get_results( $wpdb->prepare( "SELECT type, cible_id FROM $tmc WHERE message_id=%d", $message_id ) );
 
@@ -548,21 +577,6 @@ class Seliweb_Media_Messages {
             }
         }
 
-        $maintenant = current_time( 'mysql' );
-        foreach ( $par_email as $destinataire ) {
-            $wpdb->insert( $td, array(
-                'message_id'          => $message_id,
-                'nom'                 => $destinataire['nom'],
-                'prenom'              => $destinataire['prenom'],
-                'code_postal'         => $destinataire['code_postal'],
-                'ville'               => $destinataire['ville'],
-                'email'               => $destinataire['email'],
-                'numero_membre'       => $destinataire['numero_membre'],
-                'token_desabonnement' => $destinataire['token_desabonnement'],
-                'statut_envoi'        => 'attente',
-            ) );
-        }
-
-        return count( $par_email );
+        return $par_email;
     }
 }

@@ -1,6 +1,6 @@
 # SeliwebMedia
 
-Extension WordPress proposée par l'association Connex, sur abonnement : listes de diffusion, newsletters et gestion des réseaux sociaux — en lien avec les groupes de l'extension [**Seliweb-WP**](https://github.com/leduigou/seliweb) si elle est active sur le même site.
+Extension WordPress proposée par l'association Connex, gratuite (200 envois par mois), débloquée par une clé : listes de diffusion, newsletters et gestion des réseaux sociaux — en lien avec les groupes de l'extension [**Seliweb-WP**](https://github.com/leduigou/seliweb) si elle est active sur le même site.
 
 SeliwebMedia fonctionne de façon autonome (listes de diffusion et newsletters classiques) même sans Seliweb-WP. L'envoi de messages directement aux groupes d'un SEL nécessite que Seliweb-WP soit installée et active sur le même site.
 
@@ -12,22 +12,30 @@ SeliwebMedia fonctionne de façon autonome (listes de diffusion et newsletters c
 
 ## Installation
 
-1. Demandez à l'association Connex le fichier `seliwebmedia.zip` et votre clé d'abonnement.
+1. Demandez à l'association Connex le fichier `seliwebmedia.zip`.
 2. Dans l'administration WordPress : **Extensions → Ajouter une extension → Téléverser une extension**, sélectionnez le zip téléchargé, puis **Installer**.
 3. Activez l'extension : le menu **SeliwebMedia** apparaît dans la colonne de gauche, sous Seliweb.
-4. Saisissez la clé dans **SeliwebMedia → Paramétrage → Licence**.
+4. Si vous avez une clé de déblocage, saisissez-la dans **SeliwebMedia → Paramétrage → Déblocage**.
 
-## Licence (clé API Connex)
+## Version gratuite et déblocage
 
-L'abonnement Connex donne une clé, à saisir dans **SeliwebMedia → Paramétrage → Licence**. Elle autorise les envois (listes de diffusion, newsletters, réseaux sociaux) et les mises à jour. L'écran Licence affiche « Abonnement actif jusqu'au … » ou la raison d'un refus (clé inconnue, révoquée, abonnement expiré, clé d'un autre produit ou déjà utilisée par un autre site). Sans abonnement valide, les messages restent en brouillon et les messages programmés attendent. Un bandeau prévient 30 jours avant la fin de l'abonnement. Si Connex ne répond pas, la dernière vérification réussie reste valable 7 jours.
+Sans clé, SeliwebMedia fonctionne en version gratuite : 200 envois par mois (chaque mail envoyé compte, mails et newsletters confondus ; remise à zéro le 1er du mois) et la mention « Envoyé avec SeliwebMedia — connex-asso.net » en bas des messages. Un message part en entier s'il tient dans ce qui reste du mois ; sinon il reste en brouillon, ou, s'il est programmé, il attend le mois suivant.
+
+La clé de déblocage, fournie par l'association Connex, lève la limite et retire la mention. Elle se saisit dans **SeliwebMedia → Paramétrage → Déblocage**. Une clé refusée, expirée ou révoquée ne bloque rien : SeliwebMedia repasse en version gratuite. Un bandeau prévient 30 jours avant la fin d'une clé à échéance ; si Connex ne répond pas, la dernière vérification réussie reste valable 7 jours.
 
 Une clé sert à un seul site : le premier site qui l'utilise lui est lié. Saisie sur un autre site, elle est refusée (« Clé déjà utilisée par un autre site »). Pour changer de site (nouveau nom de domaine), Connex délie la clé dans Connex Licences.
 
 ## Mises à jour
 
-Les nouvelles versions sont distribuées par Connex Licences (connex-asso.net) aux sites dont l'abonnement est valide. WordPress les affiche comme pour une extension classique (Extensions / Mises à jour). Les mises à jour automatiques s'activent dans l'écran Extensions. Aucune mise à jour n'est proposée sur un site local ni sur une copie de développement.
+Les nouvelles versions sont libres et ne demandent pas de clé. WordPress les affiche comme pour une extension classique (Extensions / Mises à jour). Les mises à jour automatiques s'activent dans l'écran Extensions. Aucune mise à jour n'est proposée sur un site local ni sur une copie de développement.
 
 ## Changelog
+
+### 0.6.13
+- Mises à jour libres, sans clé : dernière release publique du dépôt GitHub (fichier `seliwebmedia.zip`). Les sites en 0.6.12 reçoivent cette version par Connex Licences, sans installation manuelle.
+- Version gratuite : 200 envois par mois (chaque mail compte, mails et newsletters confondus), mention « Envoyé avec SeliwebMedia — connex-asso.net » en bas des messages. Un message n'est jamais coupé : il part en entier s'il tient dans ce qui reste du mois, sinon il attend.
+- La clé de déblocage (Connex Licences) lève la limite et retire la mention. Sans clé, ou clé expirée, révoquée ou refusée : version gratuite, plus aucun blocage des envois.
+- Onglet « Licence » renommé « Déblocage », avec les sous-onglets Mails/Newsletter et SMS (en cours de développement). Compteur du mois sur le Tableau de bord, l'écran Messages et au-dessus du bouton Envoyer.
 
 ### 0.6.12
 - Abonnement et mises à jour par Connex Licences (connex-asso.net), comme AbeloMag : le dépôt GitHub devient privé. Une seule vérification auprès de Connex sert à tout : envois, échéance affichée, mises à jour.

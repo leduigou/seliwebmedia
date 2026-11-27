@@ -2,29 +2,39 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
- * Mises à jour de SeliwebMedia par Connex Licences (connex-asso.net), comme
- * AbeloMag. Le dépôt GitHub est privé : seul Connex Licences y a accès.
+ * Mises à jour libres de SeliwebMedia, sans clé : la dernière release
+ * publique du dépôt GitHub leduigou/seliwebmedia, fichier seliwebmedia.zip.
  *
- * - L'en-tête « Update URI: https://www.connex-asso.net/seliwebmedia » de
+ * - L'en-tête « Update URI: https://github.com/leduigou/seliwebmedia » de
  *   l'extension indique à WordPress de ne pas la chercher sur wordpress.org
- *   et de demander sa version au filtre update_plugins_www.connex-asso.net.
- * - La version vient de la même réponse que l'abonnement
- *   (Seliweb_Media_Licence::info(), service mise-a-jour).
- * - Le téléchargement passe par le service telecharger de Connex Licences,
- *   qui contrôle la clé et le site (en-têtes X-Connex-Cle / X-Connex-Site,
- *   jamais dans l'adresse) puis renvoie vers une adresse temporaire du zip.
+ *   et de demander sa version au filtre update_plugins_github.com. Dans les
+ *   deux cas (à jour ou non), le lien des mises à jour automatiques
+ *   s'affiche dans l'écran Extensions.
+ * - Réponse de GitHub gardée 6 h (1 h en cas d'erreur).
  * - Jamais de mise à jour sur un site local ni sur une copie de
  *   développement (dossier suivi par git) : elle remplacerait le code en
  *   cours d'écriture.
+ *
+ * Les versions 0.6.12 interrogeaient Connex Licences avec la clé : c'est
+ * par ce chemin qu'elles reçoivent la version suivante (le zip doit donc
+ * toujours s'appeler seliwebmedia.zip).
  */
 class Seliweb_Media_Updater {
 
-    const PAQUET = 'seliwebmedia';
+    const DEPOT     = 'leduigou/seliwebmedia';
+    const FICHIER   = 'seliwebmedia.zip';
+    const SLUG      = 'seliwebmedia';
+    const TRANSIENT = 'seliwebmedia_release';
 
     public static function init() {
-        add_filter( 'update_plugins_www.connex-asso.net', array( __CLASS__, 'version_disponible' ), 10, 3 );
-        add_filter( 'upgrader_pre_download', array( __CLASS__, 'telecharger' ), 10, 2 );
+        add_filter( 'update_plugins_github.com', array( __CLASS__, 'version_disponible' ), 10, 3 );
         add_filter( 'plugins_api', array( __CLASS__, 'fiche' ), 10, 3 );
+        // « Rechercher les mises à jour » de WordPress : on relit GitHub aussi.
+        add_action( 'delete_site_transient_update_plugins', array( __CLASS__, 'oublier' ) );
+    }
+
+    public static function oublier() {
+        delete_transient( self::TRANSIENT );
     }
 
     private static function plugin_file() {
@@ -36,33 +46,47 @@ class Seliweb_Media_Updater {
         return 'local' === wp_get_environment_type() || is_dir( SELIWEBMEDIA_DIR . '.git' );
     }
 
-    /** Dernière version selon Connex : array( version, notes, date, telechargement ) ou WP_Error. */
+    /** Dernière version publiée : array( version, notes, date, telechargement, page ) ou WP_Error. */
     public static function derniere_version() {
-        $info = Seliweb_Media_Licence::info();
-        if ( is_wp_error( $info ) ) {
-            return $info;
+        $cache = get_transient( self::TRANSIENT );
+        if ( false !== $cache ) {
+            return $cache;
         }
-        if ( ! $info['valide'] ) {
-            $motifs = Seliweb_Media_Licence::motifs();
-            return new WP_Error( 'refus', $motifs[ $info['motif'] ] ?? __( 'Clé refusée par Connex.', 'seliwebmedia' ) );
+        $res  = wp_remote_get( 'https://api.github.com/repos/' . self::DEPOT . '/releases/latest', array(
+            'timeout' => 10,
+            'headers' => array(
+                'Accept'     => 'application/vnd.github+json',
+                'User-Agent' => 'SeliwebMedia/' . SELIWEBMEDIA_VERSION,
+            ),
+        ) );
+        $code = (int) wp_remote_retrieve_response_code( $res );
+        $data = json_decode( (string) wp_remote_retrieve_body( $res ), true );
+
+        if ( is_wp_error( $res ) ) {
+            $out = new WP_Error( 'http', sprintf( __( 'GitHub injoignable : %s', 'seliwebmedia' ), $res->get_error_message() ) );
+        } elseif ( 200 !== $code || empty( $data['tag_name'] ) ) {
+            $out = new WP_Error( 'http', sprintf( __( 'Aucune version publique trouvée (code %d).', 'seliwebmedia' ), $code ) );
+        } else {
+            $zip = '';
+            foreach ( (array) ( $data['assets'] ?? array() ) as $a ) {
+                if ( isset( $a['name'], $a['browser_download_url'] ) && self::FICHIER === $a['name'] ) {
+                    $zip = (string) $a['browser_download_url'];
+                    break;
+                }
+            }
+            $version = ltrim( (string) $data['tag_name'], 'vV' );
+            $out = $zip ? array(
+                'version'        => sanitize_text_field( $version ),
+                'notes'          => (string) ( $data['body'] ?? '' ),
+                'date'           => substr( (string) ( $data['published_at'] ?? '' ), 0, 10 ),
+                'telechargement' => esc_url_raw( $zip ),
+                'page'           => esc_url_raw( (string) ( $data['html_url'] ?? '' ) ),
+            ) : new WP_Error( 'paquet', sprintf( __( 'La version %s n\'a pas de fichier seliwebmedia.zip.', 'seliwebmedia' ), $version ) );
         }
-        $p = isset( $info['paquets'][ self::PAQUET ] ) ? (array) $info['paquets'][ self::PAQUET ] : array();
-        if ( ! empty( $p['erreur'] ) ) {
-            return new WP_Error( 'paquet', sprintf( __( 'Connex : %s', 'seliwebmedia' ), sanitize_text_field( $p['erreur'] ) ) );
-        }
-        if ( empty( $p['version'] ) || empty( $p['telechargement'] ) ) {
-            return new WP_Error( 'paquet', __( 'Connex ne propose pas encore de version de SeliwebMedia.', 'seliwebmedia' ) );
-        }
-        return array(
-            'version'        => sanitize_text_field( $p['version'] ),
-            'notes'          => isset( $p['notes'] ) ? (string) $p['notes'] : '',
-            'date'           => isset( $p['date'] ) ? sanitize_text_field( $p['date'] ) : '',
-            'telechargement' => esc_url_raw( $p['telechargement'] ),
-        );
+        set_transient( self::TRANSIENT, $out, is_wp_error( $out ) ? HOUR_IN_SECONDS : 6 * HOUR_IN_SECONDS );
+        return $out;
     }
 
-    // WordPress range la réponse en « mise à jour disponible » ou « à jour » ;
-    // dans les deux cas, le lien des mises à jour automatiques s'affiche.
     public static function version_disponible( $update, $plugin_data, $plugin_file ) {
         if ( self::plugin_file() !== $plugin_file || self::est_developpement() ) {
             return $update;
@@ -72,8 +96,8 @@ class Seliweb_Media_Updater {
             return $update;
         }
         return array(
-            'id'           => 'https://www.connex-asso.net/seliwebmedia',
-            'slug'         => self::PAQUET,
+            'id'           => 'https://github.com/' . self::DEPOT,
+            'slug'         => self::SLUG,
             'version'      => $v['version'],
             'url'          => 'https://www.connex-asso.net/',
             'package'      => $v['telechargement'],
@@ -82,42 +106,9 @@ class Seliweb_Media_Updater {
         );
     }
 
-    public static function telecharger( $reply, $package ) {
-        if ( false !== $reply || ! is_string( $package ) || false === strpos( $package, 'connex-licences/v1/telecharger' ) ) {
-            return $reply;
-        }
-        $hote_paquet = preg_replace( '/^www\./', '', (string) wp_parse_url( $package, PHP_URL_HOST ) );
-        $hote_connex = preg_replace( '/^www\./', '', (string) wp_parse_url( Seliweb_Media_Licence::url_connex(), PHP_URL_HOST ) );
-        if ( $hote_paquet !== $hote_connex || false === strpos( $package, 'paquet=' . self::PAQUET ) ) {
-            return $reply; // paquet d'une autre extension (AbeloMag…) : elle s'en charge
-        }
-        $res = wp_remote_get( $package, array(
-            'timeout'     => 30,
-            'redirection' => 0,
-            'headers'     => array(
-                'X-Connex-Cle'  => Seliweb_Media_Licence::cle_enregistree(),
-                'X-Connex-Site' => home_url(),
-            ),
-        ) );
-        if ( is_wp_error( $res ) ) {
-            return $res;
-        }
-        $code     = (int) wp_remote_retrieve_response_code( $res );
-        $location = wp_remote_retrieve_header( $res, 'location' );
-        if ( is_array( $location ) ) {
-            $location = reset( $location );
-        }
-        if ( $code >= 300 && $code < 400 && $location ) {
-            return download_url( (string) $location, 300 );
-        }
-        return new WP_Error( 'seliwebmedia_telechargement', sprintf(
-            __( 'Téléchargement refusé par Connex (code %d) : vérifiez la clé dans SeliwebMedia → Paramétrage → Licence.', 'seliwebmedia' ), $code
-        ) );
-    }
-
     // Fenêtre « Afficher les détails » de l'écran Extensions.
     public static function fiche( $res, $action, $args ) {
-        if ( 'plugin_information' !== $action || ! isset( $args->slug ) || self::PAQUET !== $args->slug ) {
+        if ( 'plugin_information' !== $action || ! isset( $args->slug ) || self::SLUG !== $args->slug ) {
             return $res;
         }
         $v = self::derniere_version();
@@ -127,7 +118,7 @@ class Seliweb_Media_Updater {
         $notes = '' !== trim( $v['notes'] ) ? wpautop( esc_html( $v['notes'] ) ) : '<p>' . esc_html__( 'Pas de note pour cette version.', 'seliwebmedia' ) . '</p>';
         return (object) array(
             'name'          => 'SeliwebMedia',
-            'slug'          => self::PAQUET,
+            'slug'          => self::SLUG,
             'version'       => $v['version'],
             'author'        => 'Philippe Le Duigou',
             'homepage'      => 'https://www.connex-asso.net/',

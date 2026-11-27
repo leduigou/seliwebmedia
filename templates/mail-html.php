@@ -30,6 +30,11 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 <a href="<?php echo esc_url( $lien_desabonnement ); ?>" style="color:#888888;">Se désabonner</a>
 </td></tr>
 <?php endif; ?>
+<?php if ( ! empty( $mention_tpl ) ) : // version gratuite de SeliwebMedia ?>
+<tr><td style="padding:10px 32px 14px;background:#f6f6f6;font-size:11px;color:#999999;text-align:center;">
+<a href="<?php echo esc_url( $mention_tpl[1] ); ?>" style="color:#999999;text-decoration:none;"><?php echo esc_html( $mention_tpl[0] ); ?></a>
+</td></tr>
+<?php endif; ?>
 </table>
 </td></tr>
 </table>
